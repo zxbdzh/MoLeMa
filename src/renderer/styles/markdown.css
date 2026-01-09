@@ -1,0 +1,273 @@
+/* Markdown 预览样式 - 优化版 */
+
+/* CSS 变量定义 - 主题系统 */
+.markdown-preview {
+  --text-primary: #e5e5e5;
+  --text-secondary: #a1a1aa;
+  --code-bg: #1e1e1e;
+  --code-text: #d4d4d4;
+  --border-color: #3f3f46;
+  --bg-hover: #27272a;
+  --link-color: #60a5fa;
+  --link-hover: #93c5fd;
+  --quote-bg: #27272a;
+  --quote-border: #6b7280;
+  --table-header-bg: #27272a;
+  --table-border: #3f3f46;
+}
+
+.markdown-preview {
+  @apply prose prose-slate prose-invert max-w-none;
+  @apply text-gray-200;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+/* 标题样式 */
+.markdown-preview h1 {
+  @apply text-4xl font-bold mt-8 mb-4 text-white;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 0.5rem;
+}
+
+.markdown-preview h2 {
+  @apply text-3xl font-bold mt-6 mb-3 text-white;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.25rem;
+}
+
+.markdown-preview h3 {
+  @apply text-2xl font-bold mt-5 mb-2 text-gray-100;
+}
+
+.markdown-preview h4 {
+  @apply text-xl font-bold mt-4 mb-2 text-gray-200;
+}
+
+.markdown-preview h5 {
+  @apply text-lg font-bold mt-3 mb-1 text-gray-300;
+}
+
+.markdown-preview h6 {
+  @apply text-base font-bold mt-2 mb-1 text-gray-400;
+}
+
+/* 段落样式 */
+.markdown-preview p {
+  @apply my-4 leading-relaxed;
+  color: var(--text-primary);
+}
+
+/* 列表样式 */
+.markdown-preview ul,
+.markdown-preview ol {
+  @apply my-4 ml-6;
+  color: var(--text-primary);
+}
+
+.markdown-preview ul {
+  @apply list-disc;
+  list-style-position: outside;
+}
+
+.markdown-preview ol {
+  @apply list-decimal;
+  list-style-position: outside;
+}
+
+.markdown-preview li {
+  @apply my-2 ml-2;
+  color: var(--text-primary);
+}
+
+.markdown-preview li::marker {
+  color: var(--text-secondary);
+}
+
+/* 引用样式 */
+.markdown-preview blockquote {
+  @apply border-l-4 pl-4 my-4 italic;
+  background-color: var(--quote-bg);
+  border-color: var(--quote-border);
+  color: var(--text-secondary);
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+/* 代码样式 */
+.markdown-preview code {
+  @apply px-2 py-1 rounded text-sm font-mono;
+  background-color: var(--code-bg);
+  color: var(--code-text);
+  border: 1px solid var(--border-color);
+}
+
+.markdown-preview pre {
+  @apply my-4 rounded-lg p-4 overflow-x-auto;
+  background-color: var(--code-bg);
+  border: 1px solid var(--border-color);
+}
+
+.markdown-preview pre code {
+  @apply bg-transparent p-0 border-0;
+  background-color: transparent;
+  color: var(--code-text);
+}
+
+/* 链接样式 */
+.markdown-preview a {
+  @apply text-blue-400 hover:text-blue-300 hover:underline;
+  color: var(--link-color);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.markdown-preview a:hover {
+  color: var(--link-hover);
+}
+
+/* 图片样式 */
+.markdown-preview img {
+  @apply my-4 rounded-lg max-w-full h-auto;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+}
+
+/* 分隔线样式 */
+.markdown-preview hr {
+  @apply my-8 border-t;
+  border-color: var(--border-color);
+}
+
+/* 表格样式 */
+.markdown-preview table {
+  @apply my-4 w-full border-collapse;
+  border: 1px solid var(--table-border);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.markdown-preview th,
+.markdown-preview td {
+  @apply border px-4 py-2 text-left;
+  border-color: var(--table-border);
+  color: var(--text-primary);
+}
+
+.markdown-preview th {
+  @apply font-semibold;
+  background-color: var(--table-header-bg);
+  color: var(--text-primary);
+}
+
+.markdown-preview tr:nth-child(even) {
+  background-color: rgba(39, 39, 42, 0.5);
+}
+
+.markdown-preview tr:hover {
+  background-color: var(--bg-hover);
+}
+
+/* 代码语法高亮样式优化 */
+.markdown-preview .token.comment,
+.markdown-preview .token.prolog,
+.markdown-preview .token.doctype,
+.markdown-preview .token.cdata {
+  @apply text-gray-500;
+}
+
+.markdown-preview .token.punctuation {
+  @apply text-gray-400;
+}
+
+.markdown-preview .token.property,
+.markdown-preview .token.tag,
+.markdown-preview .token.boolean,
+.markdown-preview .token.number,
+.markdown-preview .token.constant,
+.markdown-preview .token.symbol,
+.markdown-preview .token.deleted {
+  @apply text-purple-400;
+}
+
+.markdown-preview .token.selector,
+.markdown-preview .token.attr-name,
+.markdown-preview .token.string,
+.markdown-preview .token.char,
+.markdown-preview .token.builtin,
+.markdown-preview .token.inserted {
+  @apply text-green-400;
+}
+
+.markdown-preview .token.operator,
+.markdown-preview .token.entity,
+.markdown-preview .token.url,
+.markdown-preview .token.variable {
+  @apply text-yellow-400;
+}
+
+.markdown-preview .token.atrule,
+.markdown-preview .token.attr-value,
+.markdown-preview .token.function,
+.markdown-preview .token.class-name {
+  @apply text-blue-400;
+}
+
+.markdown-preview .token.keyword {
+  @apply text-pink-400;
+}
+
+.markdown-preview .token.regex,
+.markdown-preview .token.important {
+  @apply text-orange-400;
+}
+
+/* 任务列表样式 */
+.markdown-preview input[type="checkbox"] {
+  @apply mr-2;
+  accent-color: #a855f7;
+}
+
+/* 强调样式 */
+.markdown-preview strong {
+  @apply font-bold text-white;
+}
+
+.markdown-preview em {
+  @apply italic text-gray-300;
+}
+
+/* 删除线样式 */
+.markdown-preview del {
+  @apply line-through text-gray-500;
+}
+
+/* 行内代码优化 */
+.markdown-preview p > code,
+.markdown-preview li > code {
+  @apply bg-slate-800 text-purple-300;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .markdown-preview h1 {
+    @apply text-3xl;
+  }
+  
+  .markdown-preview h2 {
+    @apply text-2xl;
+  }
+  
+  .markdown-preview h3 {
+    @apply text-xl;
+  }
+  
+  .markdown-preview table {
+    @apply text-sm;
+  }
+  
+  .markdown-preview th,
+  .markdown-preview td {
+    @apply px-2 py-1;
+  }
+}

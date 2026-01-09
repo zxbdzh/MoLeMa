@@ -1,0 +1,7 @@
+<!-- This is a placeholder for the icon file. In production, you should replace this with an actual PNG icon file. -->
+<!-- You can create a 256x256 PNG icon using tools like Figma, Photoshop, or online converters. -->
+<!-- For now, we'll use a simple SVG which Electron can also handle. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" fill="#6b21a8"/>
+  <text x="128" y="128" font-size="128" text-anchor="middle" dominant-baseline="middle" fill="white">🐟</text>
+</svg>
