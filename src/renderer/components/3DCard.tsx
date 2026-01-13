@@ -1,34 +1,27 @@
-import React from 'react'
-import { motion } from 'framer-motion'
+import React, { useRef, useState } from 'react'
 
 interface Card3DProps {
   children: React.ReactNode
   className?: string
-  onClick?: () => void
 }
 
-export default function Card3D({ children, className = '', onClick }: Card3DProps) {
+export const Card3D: React.FC<Card3DProps> = ({ children, className = '' }) => {
+  const [isHovered, setIsHovered] = useState(false)
+  const cardRef = useRef<HTMLDivElement>(null)
+
   return (
-    <motion.div
-      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 backdrop-blur-md border border-white/10 ${className}`}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      whileHover={{
-        scale: 1.02,
-        rotateX: 5,
-        rotateY: 5,
-        boxShadow: '0 20px 40px rgba(147, 51, 234, 0.3)'
-      }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      style={{
-        transformStyle: 'preserve-3d',
-        perspective: '1000px'
-      }}
+    <div
+      ref={cardRef}
+      className={`
+        relative bg-slate-900/80 dark:bg-slate-900/80 bg-white/60 backdrop-blur-sm border border-slate-800 dark:border-slate-800 border-slate-200 
+        rounded-xl p-6 transition-all duration-300
+        ${isHovered ? 'bg-slate-900/95 dark:bg-slate-900/95 bg-white/80 border-slate-700 dark:border-slate-700 border-slate-300 shadow-lg' : 'shadow-md'}
+        ${className}
+      `}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 opacity-0 hover:opacity-100 transition-opacity duration-300" />
-      <div className="relative z-10">{children}</div>
-    </motion.div>
+      {children}
+    </div>
   )
 }

@@ -35,12 +35,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     get: (key: string) => ipcRenderer.invoke('store:get', key),
     set: (key: string, value: any) => ipcRenderer.invoke('store:set', key, value),
     getDataPath: () => ipcRenderer.invoke('store:getDataPath'),
-    setDataPath: (path: string) => ipcRenderer.invoke('store:setDataPath', path)
+    setDataPath: (path: string) => ipcRenderer.invoke('store:setDataPath', path),
+    getCloseBehavior: () => ipcRenderer.invoke('store:get', 'closeBehavior'),
+    setCloseBehavior: (value: 'minimize' | 'quit') => ipcRenderer.invoke('store:set', 'closeBehavior', value)
   },
 
   // 数据库 API
   database: {
-    getPath: () => ipcRenderer.invoke('database:getPath')
+    getPath: () => ipcRenderer.invoke('database:getPath'),
+    setPath: (path: string) => ipcRenderer.invoke('database:setPath', path)
   },
 
   // 笔记 API
@@ -119,7 +122,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 对话框
   dialog: {
-    selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory')
+    selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
+    selectDatabaseFile: () => ipcRenderer.invoke('dialog:selectDatabaseFile')
   },
 
   // 平台信息

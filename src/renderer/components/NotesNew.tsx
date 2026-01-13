@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Trash2, Save, Eye, EyeOff, Search, FileText, Calendar, Clock, Edit2 } from 'lucide-react'
 import { MarkdownRenderer } from './MarkdownRenderer'
-import { TypewriterText } from './TypewriterText'
-import Card3D from './3DCard'
+import { Card3D } from './3DCard'
 
 interface Note {
   id: number
@@ -21,21 +20,11 @@ export default function Notes() {
   const [showPreview, setShowPreview] = useState(true)
   const [editTitle, setEditTitle] = useState('')
   const [editContent, setEditContent] = useState('')
-  const [typingEffectEnabled, setTypingEffectEnabled] = useState(true)
   const [loading, setLoading] = useState(true)
 
   // 加载笔记数据
   useEffect(() => {
     loadNotes()
-  }, [])
-
-  // 加载打字特效设置
-  useEffect(() => {
-    window.electronAPI?.store?.get('typingEffectEnabled').then((result) => {
-      if (result?.success) {
-        setTypingEffectEnabled(result.value !== undefined ? result.value : true)
-      }
-    })
   }, [])
 
   // 当选中的笔记改变时，更新编辑状态
@@ -135,7 +124,7 @@ export default function Notes() {
       <div className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-gray-400">加载中...</p>
           </div>
         </div>
@@ -150,11 +139,11 @@ export default function Notes() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-6"
       >
-        <h2 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-          <FileText className="w-8 h-8 text-purple-400 animate-pulse-slow" />
+        <h2 className="text-3xl font-bold dark:text-white text-slate-900 mb-2 flex items-center gap-3">
+          <FileText className="w-8 h-8 text-blue-400" />
           笔记记事本
         </h2>
-        <p className="text-gray-400">记录灵感，支持 Markdown</p>
+        <p className="text-slate-500 dark:text-slate-400">记录灵感，支持 Markdown</p>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -171,7 +160,7 @@ export default function Notes() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleAddNote}
-              className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-medium text-white flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-medium text-white flex items-center justify-center gap-2 transition-colors"
             >
               <Plus className="w-5 h-5" />
               新建笔记
@@ -180,19 +169,19 @@ export default function Notes() {
             {/* 搜索框 */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索笔记..."
-                className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-purple-500/50 text-white placeholder-gray-500"
-              />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜索笔记..."
+              className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 placeholder-slate-500 dark:placeholder-slate-400 transition-colors"
+            />
             </div>
 
             {/* 笔记列表 */}
             <div className="space-y-2 max-h-[600px] overflow-y-auto custom-scrollbar">
               {filteredNotes.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-slate-500 dark:text-slate-500">
                   <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
                   <p>还没有笔记</p>
                   <p className="text-sm mt-2">点击"新建笔记"开始吧！</p>
@@ -204,22 +193,22 @@ export default function Notes() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.2 + index * 0.05 }}
-                    whileHover={{ scale: 1.02 }}
+                    whileHover={{ scale: 1.01 }}
                     onClick={() => {
                       setSelectedNote(note)
                       setIsEditing(false)
                     }}
-                    className={`p-4 rounded-xl cursor-pointer transition-all ${
+                    className={`p-4 rounded-lg cursor-pointer transition-all border ${
                       selectedNote?.id === note.id
-                        ? 'bg-purple-500/20 border-purple-500/50'
-                        : 'bg-white/5 border-white/10 hover:bg-white/10'
-                    } border`}
+                        ? 'bg-blue-500/10 border-blue-500/30'
+                        : 'bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/50'
+                    }`}
                   >
                     <h3 className="font-bold mb-1 truncate">{note.title}</h3>
-                    <p className="text-sm text-gray-400 line-clamp-2 mb-2">
+                    <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-2">
                       {note.content.replace(/[#*`]/g, '').substring(0, 50)}...
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-500">
                       <Calendar className="w-3 h-3" />
                       <span>{formatDate(note.updated_at)}</span>
                       <Clock className="w-3 h-3 ml-auto" />
@@ -241,7 +230,7 @@ export default function Notes() {
         >
           {!selectedNote ? (
             <Card3D className="p-8">
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-slate-500 dark:text-slate-500">
                 <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
                 <p>选择一个笔记开始编辑</p>
               </div>
@@ -254,33 +243,33 @@ export default function Notes() {
                   {isEditing ? (
                     <>
                       <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={handleSaveNote}
-                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg font-medium text-white flex items-center gap-2 transition-colors"
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium text-white flex items-center gap-2 transition-colors cursor-pointer"
                       >
                         <Save className="w-4 h-4" />
                         保存
                       </motion.button>
                       <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => {
                           setEditTitle(selectedNote.title)
                           setEditContent(selectedNote.content)
                           setIsEditing(false)
                         }}
-                        className="px-4 py-2 bg-gray-500 hover:bg-gray-600 rounded-lg font-medium text-white transition-colors"
+                        className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg font-medium text-white transition-colors cursor-pointer"
                       >
                         取消
                       </motion.button>
                     </>
                   ) : (
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => setIsEditing(true)}
-                      className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg font-medium text-white flex items-center gap-2 transition-colors"
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium text-white flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <Edit2 className="w-4 h-4" />
                       编辑
@@ -289,19 +278,19 @@ export default function Notes() {
                 </div>
                 <div className="flex items-center gap-2">
                   <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setShowPreview(!showPreview)}
-                    className="px-4 py-2 bg-gray-500 hover:bg-gray-600 rounded-lg font-medium text-white flex items-center gap-2 transition-colors"
+                    className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg font-medium text-white flex items-center gap-2 transition-colors cursor-pointer"
                   >
                     {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     {showPreview ? '隐藏预览' : '显示预览'}
                   </motion.button>
                   <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => handleDeleteNote(selectedNote.id)}
-                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg font-medium text-red-400 hover:text-red-300 flex items-center gap-2 transition-colors"
+                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg font-medium text-red-400 hover:text-red-300 flex items-center gap-2 transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                     删除
@@ -319,8 +308,8 @@ export default function Notes() {
                     onChange={(e) => isEditing && setEditTitle(e.target.value)}
                     disabled={!isEditing}
                     placeholder="笔记标题"
-                    className={`bg-transparent text-xl font-bold text-white focus:outline-none placeholder-gray-500 ${
-                      !isEditing ? 'disabled:opacity-70' : 'border-b border-purple-500/50'
+                    className={`bg-transparent text-xl font-bold dark:text-white text-slate-900 focus:outline-none placeholder-slate-500 dark:placeholder-slate-400 ${
+                      !isEditing ? 'disabled:opacity-70' : 'border-b border-blue-500/50'
                     }`}
                   />
                   <textarea
@@ -328,7 +317,7 @@ export default function Notes() {
                     onChange={(e) => isEditing && setEditContent(e.target.value)}
                     disabled={!isEditing}
                     placeholder="开始书写... 支持 Markdown 语法"
-                    className={`flex-1 ${showPreview ? 'min-h-[400px]' : 'min-h-[calc(100vh-350px)]'} bg-white/5 border border-white/10 rounded-lg p-4 text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent custom-scrollbar font-mono text-sm ${
+                    className={`flex-1 ${showPreview ? 'min-h-[400px]' : 'min-h-[calc(100vh-350px)]'} bg-slate-100 dark:bg-slate-800/30 border border-slate-300 dark:border-slate-700/50 rounded-lg p-4 dark:text-slate-200 text-slate-700 resize-none focus:outline-none focus:border-blue-500/50 custom-scrollbar font-mono text-sm transition-colors ${
                       !isEditing ? 'disabled:opacity-70' : ''
                     }`}
                   />
@@ -336,21 +325,13 @@ export default function Notes() {
 
                 {/* 预览区域 - 固定 Header */}
                 {showPreview && (
-                  <div className="flex flex-col min-h-[400px] bg-white/5 border border-white/10 rounded-lg overflow-hidden">
+                    <div className="flex flex-col min-h-[400px] bg-slate-100 dark:bg-slate-800/30 border border-slate-300 dark:border-slate-700/50 rounded-lg overflow-hidden">
                     {/* 固定的标题栏 */}
-                    <div className="sticky top-0 bg-black/30 backdrop-blur-md border-b border-white/10 p-4 z-10">
-                      <h3 className="text-lg font-bold text-white">
-                        {typingEffectEnabled && !isEditing ? (
-                          <TypewriterText 
-                            text={selectedNote.title} 
-                            speed={30}
-                            showCursor={true}
-                          />
-                        ) : (
-                          selectedNote.title
-                        )}
+                      <div className="sticky top-0 bg-slate-200 dark:bg-slate-900/50 backdrop-blur-sm border-b border-slate-300 dark:border-slate-700/50 p-4 z-10">
+                      <h3 className="text-lg font-bold dark:text-white text-slate-900">
+                        {selectedNote.title}
                       </h3>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
                         最后更新：{formatDate(selectedNote.updated_at)} {formatTime(selectedNote.updated_at)}
                       </p>
                     </div>
@@ -359,7 +340,7 @@ export default function Notes() {
                     <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                       <MarkdownRenderer 
                         content={isEditing ? editContent : selectedNote.content}
-                        className="text-gray-200"
+                        className="dark:text-slate-200 text-slate-700"
                       />
                     </div>
                   </div>

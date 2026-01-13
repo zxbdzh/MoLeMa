@@ -1,15 +1,26 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { app } from 'electron';
+import Store from 'electron-store';
 
 let db: Database.Database | null = null;
+
+// 初始化 settings store 用于存储自定义数据库路径
+const settingsStore = new Store({
+  name: 'moyu-settings',
+  defaults: {
+    customDatabasePath: null
+  }
+});
 
 /**
  * 获取数据库实例（单例模式）
  */
 export function getDatabase(): Database.Database {
   if (!db) {
-    const dbPath = path.join(app.getPath('userData'), 'moyu.db');
+    // 优先使用自定义数据库路径，否则使用默认路径
+    const customPath = settingsStore.get('customDatabasePath') as string | null;
+    const dbPath = customPath || path.join(app.getPath('userData'), 'moyu.db');
     db = new Database(dbPath);
     
     // 启用外键约束
@@ -32,6 +43,22 @@ export function closeDatabase(): void {
     db = null;
     console.log('Database closed');
   }
+}
+
+/**
+ * 设置自定义数据库路径
+ */
+export function setCustomDatabasePath(dbPath: string): void {
+  settingsStore.set('customDatabasePath', dbPath);
+  console.log('Custom database path set:', dbPath);
+}
+
+/**
+ * 获取当前数据库路径
+ */
+export function getCurrentDatabasePath(): string {
+  const customPath = settingsStore.get('customDatabasePath') as string | null;
+  return customPath || path.join(app.getPath('userData'), 'moyu.db');
 }
 
 /**

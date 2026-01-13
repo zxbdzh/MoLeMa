@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ArrowLeft, ExternalLink, Loader2, AlertCircle, Star, StarOff } from 'lucide-react'
 import { useRSSStore } from '../store/rssStore'
@@ -59,7 +60,7 @@ export default function ArticleReader({ onClose }: ArticleReaderProps) {
 
   const processedContent = processHtmlContent(currentArticle.content)
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -74,20 +75,20 @@ export default function ArticleReader({ onClose }: ArticleReaderProps) {
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-4xl max-h-[90vh] bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col"
+          className="w-full max-w-4xl max-h-[90vh] dark:bg-slate-900 bg-white rounded-2xl border border-white/10 dark:border-white/10 border-slate-200 shadow-2xl overflow-hidden flex flex-col"
         >
           {/* 头部 */}
-          <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/20">
+          <div className="flex items-center justify-between p-4 border-b border-white/10 dark:border-white/10 border-slate-200 bg-black/20 dark:bg-black/20 bg-slate-50/50">
             <div className="flex items-center gap-3">
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={onClose}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-slate-200 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
               </motion.button>
-              <span className="text-sm text-gray-400">
+              <span className="text-sm text-gray-400 dark:text-gray-400 text-slate-600">
                 {currentFeed?.title || 'RSS Reader'}
               </span>
             </div>
@@ -98,7 +99,7 @@ export default function ArticleReader({ onClose }: ArticleReaderProps) {
                 rel="noopener noreferrer"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-slate-200 rounded-lg transition-colors"
                 title="查看原文"
               >
                 <ExternalLink className="w-5 h-5" />
@@ -110,7 +111,7 @@ export default function ArticleReader({ onClose }: ArticleReaderProps) {
                 className={`p-2 rounded-lg transition-colors ${
                   isFavorite(currentArticle) 
                     ? 'text-yellow-400 hover:bg-yellow-500/20' 
-                    : 'text-gray-400 hover:bg-white/10'
+                    : 'text-gray-400 dark:text-gray-400 text-slate-600 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-slate-200'
                 }`}
                 title={isFavorite(currentArticle) ? '取消收藏' : '收藏'}
               >
@@ -132,25 +133,25 @@ export default function ArticleReader({ onClose }: ArticleReaderProps) {
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="w-12 h-12 animate-spin text-purple-400 mb-4" />
-                <p className="text-gray-400">加载中...</p>
+                <p className="text-gray-400 dark:text-gray-400 text-slate-600">加载中...</p>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center py-20">
                 <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
-                <p className="text-gray-400">{error}</p>
+                <p className="text-gray-400 dark:text-gray-400 text-slate-600">{error}</p>
               </div>
             ) : (
               <motion.article
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="prose prose-invert prose-lg max-w-none"
+                className="prose prose-invert prose-lg max-w-none dark:prose-invert prose-slate"
               >
-                <h1 className="text-3xl font-bold mb-4 text-white">
+                <h1 className="text-3xl font-bold mb-4 dark:text-white text-slate-900">
                   {currentArticle.title}
                 </h1>
 
-                <div className="flex items-center gap-4 text-sm text-gray-400 mb-6">
+                <div className="flex items-center gap-4 text-sm text-gray-400 dark:text-gray-400 text-slate-600 mb-6">
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 bg-purple-500 rounded-full" />
                     {format(new Date(currentArticle.pubDate), 'yyyy年MM月dd日 HH:mm', {
@@ -165,9 +166,9 @@ export default function ArticleReader({ onClose }: ArticleReaderProps) {
                   )}
                 </div>
 
-                <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
+                <div className="bg-white/5 dark:bg-white/5 bg-slate-50 backdrop-blur-md rounded-xl p-6 border border-white/10 dark:border-white/10 border-slate-200">
                   <div 
-                    className="text-gray-300 leading-relaxed prose prose-invert"
+                    className="dark:text-gray-300 text-slate-700 leading-relaxed prose prose-invert dark:prose-invert prose-slate"
                     dangerouslySetInnerHTML={{ __html: processedContent }}
                   />
                 </div>
@@ -176,7 +177,7 @@ export default function ArticleReader({ onClose }: ArticleReaderProps) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.5 }}
-                  className="mt-8 pt-6 border-t border-white/10"
+                  className="mt-8 pt-6 border-t border-white/10 dark:border-white/10 border-slate-200"
                 >
                   <motion.a
                     href={currentArticle.link}
@@ -184,7 +185,7 @@ export default function ArticleReader({ onClose }: ArticleReaderProps) {
                     rel="noopener noreferrer"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl font-medium transition-all shadow-lg shadow-purple-500/50"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 rounded-xl font-medium transition-all"
                   >
                     <ExternalLink className="w-4 h-4" />
                     查看原文
@@ -195,6 +196,7 @@ export default function ArticleReader({ onClose }: ArticleReaderProps) {
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }

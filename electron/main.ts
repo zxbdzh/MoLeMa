@@ -2,7 +2,16 @@ import { app, BrowserWindow, globalShortcut, Tray, Menu, nativeImage, ipcMain, d
 import path from 'node:path'
 import Parser from 'rss-parser'
 import Store from 'electron-store'
-import { getDatabase, closeDatabase, seedDefaultData } from './database'
+
+// 扩展 Electron.App 类型
+declare global {
+  namespace Electron {
+    interface App {
+      isQuitting?: boolean
+    }
+  }
+}
+import { getDatabase, closeDatabase, seedDefaultData, getCurrentDatabasePath } from './database'
 import { runMigration } from './migration'
 import { notesApi } from './api/notesApi'
 import { todosApi } from './api/todosApi'
@@ -14,13 +23,27 @@ let tray: Tray | null = null
 // 窗口显示/隐藏状态
 let isWindowVisible = false
 
+// Store 类型定义
+interface StoreData {
+  shortcuts: {
+    toggleWindow: string
+  }
+  closeBehavior: 'minimize' | 'quit'
+  notes: any[]
+  todos: any[]
+  rssFeeds: Record<string, any>
+  favorites: any[]
+  [key: string]: any
+}
+
 // 初始化 electron-store（保持兼容性）
-const store = new Store({
+const store = new Store<StoreData>({
   name: 'moyu-data',
   defaults: {
     shortcuts: {
       toggleWindow: 'CommandOrControl+Alt+M'
     },
+    closeBehavior: 'minimize', // 可选: 'minimize' (最小化到托盘) 或 'quit' (直接退出)
     notes: [],
     todos: [],
     rssFeeds: {},
@@ -83,11 +106,30 @@ function createWindow() {
     mainWindow = null
   })
 
-  // 阻止窗口关闭，改为隐藏到托盘
+  // 关闭窗口时显示确认对话框
   mainWindow.on('close', (event) => {
     if (!app.isQuitting) {
       event.preventDefault()
-      mainWindow?.hide()
+      
+      dialog.showMessageBox(mainWindow!, {
+        type: 'question',
+        buttons: ['最小化到托盘', '直接退出', '取消'],
+        defaultId: 0,
+        cancelId: 2,
+        title: '关闭应用',
+        message: '您希望如何关闭应用？',
+        detail: '最小化到托盘后，应用会在后台继续运行，可通过托盘图标或快捷键快速恢复。'
+      }).then(({ response }) => {
+        if (response === 0) {
+          // 最小化到托盘
+          mainWindow?.hide()
+        } else if (response === 1) {
+          // 直接退出
+          app.isQuitting = true
+          app.quit()
+        }
+        // response === 2 取消，不做任何操作
+      })
     }
   })
 }
@@ -416,7 +458,7 @@ ipcMain.handle('store:setDataPath', async (_event, newPath: string) => {
 
 ipcMain.handle('dialog:selectDirectory', async () => {
   try {
-    const result = await dialog.showOpenDialog({
+    const result = await dialog.showOpenDialog(mainWindow!, {
       properties: ['openDirectory', 'createDirectory']
     })
     
@@ -428,6 +470,27 @@ ipcMain.handle('dialog:selectDirectory', async () => {
   } catch (error) {
     console.error('Failed to select directory:', error)
     return { success: false, error: 'Failed to select directory' }
+  }
+})
+
+ipcMain.handle('dialog:selectDatabaseFile', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openFile'],
+      filters: [
+        { name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      return { success: true, path: result.filePaths[0] }
+    }
+    
+    return { success: false, canceled: true }
+  } catch (error) {
+    console.error('Failed to select database file:', error)
+    return { success: false, error: 'Failed to select database file' }
   }
 })
 
@@ -527,7 +590,7 @@ ipcMain.handle('notes:getAll', () => {
 
 ipcMain.handle('database:getPath', () => {
   try {
-    const dbPath = path.join(app.getPath('userData'), 'moyu.db')
+    const dbPath = getCurrentDatabasePath()
     return { success: true, path: dbPath }
   } catch (error) {
     console.error('Failed to get database path:', error)

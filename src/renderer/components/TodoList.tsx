@@ -1,8 +1,7 @@
-import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Trash2, Check, X, Edit2 } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Trash2, Edit2, ListChecks, Circle, CheckCircle } from 'lucide-react'
 import { useTodoStore } from '../store/todoStore'
-import Card3D from './3DCard'
+import { Card3D } from './3DCard'
 
 export default function TodoList() {
   const { todos, addTodo, toggleTodo, deleteTodo, updateTodo, clearCompleted } = useTodoStore()
@@ -40,172 +39,148 @@ export default function TodoList() {
   const totalCount = todos.length
 
   return (
-    <div className="space-y-6">
-      {/* 统计信息 */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-1 md:grid-cols-3 gap-4"
-      >
-        <Card3D className="p-6">
-          <div className="text-3xl font-bold text-purple-400">{totalCount}</div>
-          <div className="text-gray-400">总任务</div>
-        </Card3D>
-        <Card3D className="p-6">
-          <div className="text-3xl font-bold text-green-400">{completedCount}</div>
-          <div className="text-gray-400">已完成</div>
-        </Card3D>
-        <Card3D className="p-6">
-          <div className="text-3xl font-bold text-pink-400">{totalCount - completedCount}</div>
-          <div className="text-gray-400">待完成</div>
-        </Card3D>
-      </motion.div>
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <ListChecks className="w-8 h-8 text-primary" />
+          <h1 className="text-3xl font-bold font-heading dark:text-white text-slate-900">待办事项</h1>
+        </div>
+        <p className="text-slate-400 ml-11">高效管理您的任务，让工作井井有条</p>
+      </div>
 
-      {/* 添加任务表单 */}
-      <motion.form
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        onSubmit={handleAddTodo}
-        className="flex gap-3"
-      >
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card3D className="p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <ListChecks className="w-5 h-5 text-blue-400" />
+            <div className="text-3xl font-bold dark:text-white text-slate-900">{totalCount}</div>
+          </div>
+          <div className="text-gray-400 dark:text-gray-400 text-slate-500">总任务</div>
+        </Card3D>
+        <Card3D className="p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <CheckCircle className="w-5 h-5 text-green-400" />
+            <div className="text-3xl font-bold dark:text-white text-slate-900">{completedCount}</div>
+          </div>
+          <div className="text-gray-400 dark:text-gray-400 text-slate-500">已完成</div>
+        </Card3D>
+        <Card3D className="p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <Circle className="w-5 h-5 text-orange-400" />
+            <div className="text-3xl font-bold dark:text-white text-slate-900">{totalCount - completedCount}</div>
+          </div>
+          <div className="text-gray-400 dark:text-gray-400 text-slate-500">待完成</div>
+        </Card3D>
+      </div>
+
+      <form onSubmit={handleAddTodo} className="mt-6 flex gap-3">
         <input
           type="text"
           value={newTodo}
           onChange={(e) => setNewTodo(e.target.value)}
           placeholder="添加新任务..."
-          className="flex-1 px-4 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all text-white placeholder-gray-500"
+          className="flex-1 px-4 py-3 bg-slate-800/50 dark:bg-slate-800/50 bg-white/50 border border-slate-700 dark:border-slate-700 border-slate-200 rounded-xl focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 placeholder-slate-400 dark:placeholder-slate-400 placeholder-slate-400 transition-colors"
         />
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+        <button
           type="submit"
-          className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center gap-2"
+          className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-medium dark:text-white text-slate-900 flex items-center gap-2 transition-colors cursor-pointer"
         >
           <Plus className="w-5 h-5" />
           添加
-        </motion.button>
-      </motion.form>
+        </button>
+      </form>
 
-      {/* 任务列表 */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="space-y-3"
-      >
-        <AnimatePresence mode="popLayout">
-          {todos.map((todo, index) => (
-            <motion.div
-              key={todo.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ delay: index * 0.05 }}
-              layout
-              className={`group relative overflow-hidden rounded-xl border ${
-                todo.completed
-                  ? 'bg-green-500/10 border-green-500/30'
-                  : 'bg-white/5 border-white/10'
-              } backdrop-blur-md`}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              
-              <div className="relative z-10 p-4 flex items-center gap-4">
-                {/* 复选框 */}
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => toggleTodo(todo.id)}
-                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                    todo.completed
-                      ? 'bg-green-500 border-green-500'
-                      : 'border-gray-500 hover:border-purple-500'
-                  }`}
-                >
-                  {todo.completed && <Check className="w-4 h-4 text-white" />}
-                </motion.button>
-
-                {/* 任务文本 */}
-                <div className="flex-1">
-                  {editingId === todo.id ? (
-                    <input
-                      type="text"
-                      value={editingText}
-                      onChange={(e) => setEditingText(e.target.value)}
-                      onBlur={() => handleEditSave(todo.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleEditSave(todo.id)
-                        if (e.key === 'Escape') handleEditCancel()
-                      }}
-                      autoFocus
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-purple-500/50 text-white"
-                    />
-                  ) : (
-                    <span
-                      className={`text-lg ${
-                        todo.completed
-                          ? 'text-gray-500 line-through'
-                          : 'text-white'
-                      }`}
-                    >
-                      {todo.text}
-                    </span>
-                  )}
-                </div>
-
-                {/* 操作按钮 */}
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {!editingId && !todo.completed && (
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => handleEditStart(todo.id, todo.text)}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                      title="编辑"
-                    >
-                      <Edit2 className="w-4 h-4 text-gray-400" />
-                    </motion.button>
-                  )}
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => deleteTodo(todo.id)}
-                    className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
-                    title="删除"
-                  >
-                    <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-400" />
-                  </motion.button>
-                </div>
+      <div className="space-y-2">
+        {todos.map((todo) => (
+          <div
+            key={todo.id}
+            className={`group overflow-hidden rounded-lg border transition-all cursor-pointer ${
+              todo.completed
+                ? 'bg-green-500/5 border-green-500/20 dark:bg-green-500/5 dark:border-green-500/20 bg-green-50/30 border-green-200/30'
+                : 'bg-slate-800/40 border-slate-700/50 dark:bg-slate-800/40 dark:border-slate-700/50 bg-white/40 border-slate-200/50'
+            } hover:border-blue-500/30 dark:hover:border-blue-500/30 hover:border-blue-300/30`}
+            onClick={() => toggleTodo(todo.id)}
+          >
+            <div className="p-4 flex items-center gap-4">
+              <div className="flex-shrink-0">
+                {todo.completed ? (
+                  <CheckCircle className="w-6 h-6 text-green-400" />
+                ) : (
+                  <Circle className="w-6 h-6 text-gray-500" />
+                )}
               </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+
+              <div className="flex-1 min-w-0">
+                {editingId === todo.id ? (
+                  <input
+                    type="text"
+                    value={editingText}
+                    onChange={(e) => setEditingText(e.target.value)}
+                    onBlur={() => handleEditSave(todo.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleEditSave(todo.id)
+                      if (e.key === 'Escape') handleEditCancel()
+                    }}
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full px-3 py-1 bg-slate-800/50 dark:bg-slate-800/50 bg-white/50 border border-slate-700 dark:border-slate-700 border-slate-200 rounded focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
+                  />
+                ) : (
+                  <span
+                    className={`text-base truncate ${
+                      todo.completed
+                        ? 'text-slate-500 dark:text-slate-500 text-slate-600 line-through'
+                        : 'text-slate-200 dark:text-slate-200 text-slate-800'
+                    }`}
+                  >
+                    {todo.text}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {!editingId && !todo.completed && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleEditStart(todo.id, todo.text)
+                    }}
+                    className="p-2 hover:bg-slate-800/50 dark:hover:bg-slate-800/50 hover:bg-slate-200 rounded transition-colors cursor-pointer"
+                    title="编辑"
+                  >
+                    <Edit2 className="w-4 h-4 text-gray-400" />
+                  </button>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    deleteTodo(todo.id)
+                  }}
+                  className="p-2 hover:bg-red-500/20 rounded transition-colors cursor-pointer"
+                  title="删除"
+                >
+                  <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-400" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
 
         {todos.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12"
-          >
-            <div className="text-6xl mb-4">📝</div>
-            <p className="text-gray-400 text-lg">还没有任务，添加一个吧！</p>
-          </motion.div>
+          <div className="text-center py-12 text-gray-500 dark:text-gray-500 text-slate-500">
+            <ListChecks className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-lg dark:text-lg text-slate-700">还没有任务</p>
+            <p className="text-sm mt-2">添加一个新任务开始吧！</p>
+          </div>
         )}
-      </motion.div>
+      </div>
 
-      {/* 清除已完成按钮 */}
       {completedCount > 0 && (
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+        <button
           onClick={clearCompleted}
-          className="w-full py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl text-gray-400 hover:text-white hover:border-red-500/50 hover:bg-red-500/10 transition-all"
+          className="w-full py-3 bg-slate-800/40 dark:bg-slate-800/40 bg-white/40 border border-slate-700/50 dark:border-slate-700/50 border-slate-200/50 rounded-xl text-slate-400 dark:text-slate-400 text-slate-600 hover:text-white dark:hover:text-slate-900 hover:border-red-500/30 dark:hover:border-red-500/30 hover:border-red-300/30 hover:bg-red-500/10 dark:hover:bg-red-500/10 hover:bg-red-50/20 transition-colors cursor-pointer"
         >
           清除已完成任务 ({completedCount})
-        </motion.button>
+        </button>
       )}
     </div>
   )

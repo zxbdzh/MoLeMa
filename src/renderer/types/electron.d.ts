@@ -1,0 +1,130 @@
+interface ElectronAPI {
+  // 窗口控制
+  toggleWindow: () => void
+  minimizeWindow: () => void
+  maximizeWindow: () => void
+  fullscreenWindow: () => void
+  closeWindow: () => void
+  isFullscreen: () => Promise<{ success: boolean; isFullscreen?: boolean }>
+
+  // RSS 相关
+  rss: {
+    addFeed: (url: string) => Promise<any>
+    removeFeed: (url: string) => Promise<any>
+    refreshFeed: (url: string) => Promise<any>
+    getFeeds: () => Promise<any>
+    getFeed: (url: string) => Promise<any>
+  }
+
+  // 快捷键相关
+  shortcuts: {
+    get: () => Promise<any>
+    set: (shortcuts: any) => Promise<any>
+    onChanged: (callback: (shortcuts: any) => void) => () => void
+  }
+
+  // 数据存储
+  store: {
+    get: (key: string) => Promise<{ success: boolean; value?: any }>
+    set: (key: string, value: any) => Promise<{ success: boolean }>
+    getDataPath: () => Promise<{ success: boolean; path?: string }>
+    setDataPath: (path: string) => Promise<{ success: boolean; message?: string; requiresRestart?: boolean }>
+    getCloseBehavior: () => Promise<{ success: boolean; value?: 'minimize' | 'quit' }>
+    setCloseBehavior: (value: 'minimize' | 'quit') => Promise<{ success: boolean }>
+  }
+
+  // 数据库 API
+  database: {
+    getPath: () => Promise<{ success: boolean; path?: string }>
+    setPath: (path: string) => Promise<{ success: boolean; message?: string; requiresRestart?: boolean }>
+  }
+
+  // 笔记 API
+  notes: {
+    getAll: () => Promise<{ success: boolean; notes?: any[] }>
+    getById: (id: number) => Promise<{ success: boolean; note?: any }>
+    search: (query: string) => Promise<{ success: boolean; notes?: any[] }>
+    create: (note: any) => Promise<{ success: boolean; id?: number }>
+    update: (id: number, note: any) => Promise<{ success: boolean }>
+    delete: (id: number) => Promise<{ success: boolean }>
+    count: () => Promise<{ success: boolean; count?: number }>
+  }
+
+  // 待办事项 API
+  todos: {
+    getAll: () => Promise<{ success: boolean; todos?: any[] }>
+    getById: (id: number) => Promise<{ success: boolean; todo?: any }>
+    create: (todo: any) => Promise<{ success: boolean; id?: number }>
+    update: (id: number, todo: any) => Promise<{ success: boolean }>
+    toggle: (id: number) => Promise<{ success: boolean }>
+    delete: (id: number) => Promise<{ success: boolean }>
+    clearCompleted: () => Promise<{ success: boolean; count?: number }>
+    getStats: () => Promise<{ success: boolean; stats?: any }>
+  }
+
+  // 新闻分类 API
+  newsCategories: {
+    getAll: () => Promise<{ success: boolean; categories?: any[] }>
+    getById: (id: number) => Promise<{ success: boolean; category?: any }>
+    create: (category: any) => Promise<{ success: boolean; id?: number }>
+    update: (id: number, category: any) => Promise<{ success: boolean }>
+    delete: (id: number) => Promise<{ success: boolean }>
+  }
+
+  // 新闻源 API
+  newsSources: {
+    getAll: () => Promise<{ success: boolean; sources?: any[] }>
+    getActive: () => Promise<{ success: boolean; sources?: any[] }>
+    getById: (id: number) => Promise<{ success: boolean; source?: any }>
+    getByUrl: (url: string) => Promise<{ success: boolean; source?: any }>
+    create: (source: any) => Promise<{ success: boolean; id?: number }>
+    update: (id: number, source: any) => Promise<{ success: boolean }>
+    delete: (id: number) => Promise<{ success: boolean }>
+  }
+
+  // 新闻条目 API
+  newsItems: {
+    getNewsItems: (limit?: number, offset?: number, categoryId?: number) => Promise<{ success: boolean; items?: any[] }>
+    getRecent: (limit?: number) => Promise<{ success: boolean; items?: any[] }>
+    getById: (id: number) => Promise<{ success: boolean; item?: any }>
+    getBySourceId: (sourceId: number, limit?: number) => Promise<{ success: boolean; items?: any[] }>
+    create: (item: any) => Promise<{ success: boolean; id?: number }>
+    update: (id: number, item: any) => Promise<{ success: boolean }>
+    updateContent: (id: number, content: string) => Promise<{ success: boolean }>
+    markAsRead: (id: number) => Promise<{ success: boolean }>
+    markMultipleAsRead: (ids: number[]) => Promise<{ success: boolean; count?: number }>
+    delete: (id: number) => Promise<{ success: boolean }>
+    cleanOldNews: (days?: number) => Promise<{ success: boolean; count?: number }>
+  }
+
+  // 收藏 API
+  favorites: {
+    getAll: (limit?: number) => Promise<{ success: boolean; favorites?: any[] }>
+    add: (itemId: number) => Promise<{ success: boolean }>
+    remove: (itemId: number) => Promise<{ success: boolean }>
+    isFavorite: (itemId: number) => Promise<{ success: boolean; isFavorite?: boolean }>
+  }
+
+  // 新闻（保持兼容性）
+  news: {
+    getDomesticNews: (category?: string) => Promise<any>
+  }
+
+  // 对话框
+  dialog: {
+    selectDirectory: () => Promise<{ success: boolean; path?: string; canceled?: boolean }>
+    selectDatabaseFile: () => Promise<{ success: boolean; path?: string; canceled?: boolean }>
+  }
+
+  // 平台信息
+  platform: string
+
+  // 版本信息
+  versions: NodeJS.ProcessVersions
+}
+
+declare global {
+  interface Window {
+    electronAPI: ElectronAPI
+  }
+}
