@@ -16,14 +16,18 @@ const PRESET_FEEDS = [
 export default function RSSPage() {
   const { feeds, currentFeed, currentArticle, favorites, addFeed, removeFeed, setCurrentFeed, setCurrentArticle, refreshFeed, isFavorite, toggleFavorite } = useRSSStore()
   const [newFeedUrl, setNewFeedUrl] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
   const [error, setError] = useState('')
   const [viewMode, setViewMode] = useState<'feeds' | 'favorites'>('feeds')
+
+  const setLoading = (key: string, value: boolean) => {
+    setLoadingStates(prev => ({ ...prev, [key]: value }))
+  }
 
   const handleAddFeed = async () => {
     if (!newFeedUrl.trim()) return
 
-    setIsLoading(true)
+    setLoading('add', true)
     setError('')
 
     try {
@@ -32,12 +36,12 @@ export default function RSSPage() {
     } catch (err) {
       setError('添加 RSS 源失败，请检查 URL 是否正确')
     } finally {
-      setIsLoading(false)
+      setLoading('add', false)
     }
   }
 
   const handleAddPresetFeed = async (url: string) => {
-    setIsLoading(true)
+    setLoading(`preset-${url}`, true)
     setError('')
 
     try {
@@ -45,12 +49,12 @@ export default function RSSPage() {
     } catch (err) {
       setError('添加 RSS 源失败，请检查 URL 是否正确')
     } finally {
-      setIsLoading(false)
+      setLoading(`preset-${url}`, false)
     }
   }
 
   const handleRefreshFeed = async (url: string) => {
-    setIsLoading(true)
+    setLoading(`refresh-${url}`, true)
     setError('')
 
     try {
@@ -58,7 +62,7 @@ export default function RSSPage() {
     } catch (err) {
       setError('刷新 RSS 源失败')
     } finally {
-      setIsLoading(false)
+      setLoading(`refresh-${url}`, false)
     }
   }
 
@@ -120,9 +124,17 @@ export default function RSSPage() {
               <button
                 key={feed.url}
                 onClick={() => handleAddPresetFeed(feed.url)}
-                className="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg text-sm transition-colors cursor-pointer"
+                disabled={loadingStates[`preset-${feed.url}`]}
+                className="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg text-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {feed.name}
+                {loadingStates[`preset-${feed.url}`] ? (
+                  <>
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    添加中...
+                  </>
+                ) : (
+                  feed.name
+                )}
               </button>
             ))}
           </div>
@@ -140,11 +152,20 @@ export default function RSSPage() {
           />
           <button
             onClick={handleAddFeed}
-            disabled={isLoading}
-            className="px-6 py-2 bg-primary hover:bg-primary/90 rounded-lg font-medium text-white dark:text-white flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
+            disabled={loadingStates.add}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium text-white flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
-            添加
+            {loadingStates.add ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                添加中...
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                添加
+              </>
+            )}
           </button>
         </div>
 
@@ -166,12 +187,15 @@ export default function RSSPage() {
                   <p className="text-sm">添加一个 RSS 源开始阅读吧！</p>
                 </div>
               ) : (
-                feeds.map((feed) => (
+                feeds.map((feed) => {
+                  // 确保feed.url没有前后空格
+                  const trimmedUrl = feed.url.trim();
+                  return (
                   <div
-                    key={feed.url}
-                    onClick={() => setCurrentFeed(feed)}
+                    key={trimmedUrl}
+                    onClick={() => setCurrentFeed({...feed, url: trimmedUrl})}
                     className={`p-4 rounded-xl cursor-pointer transition-all ${
-                      currentFeed?.url === feed.url
+                      currentFeed?.url === trimmedUrl
                         ? 'bg-primary/30 border-primary/70'
                         : 'bg-slate-800/40 dark:bg-slate-800/40 bg-white/40 border-slate-700/50 dark:border-slate-700/50 border-slate-200 hover:bg-slate-800/60 dark:hover:bg-slate-800/60 hover:bg-slate-100/50'
                     } border`}
@@ -189,16 +213,17 @@ export default function RSSPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleRefreshFeed(feed.url)
+                            handleRefreshFeed(trimmedUrl)
                           }}
-                          className="p-1.5 hover:bg-slate-800/50 dark:hover:bg-slate-800/50 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                          disabled={loadingStates[`refresh-${trimmedUrl}`]}
+                          className="p-1.5 hover:bg-slate-800/50 dark:hover:bg-slate-800/50 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <RefreshCw className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                          <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-slate-400 ${loadingStates[`refresh-${trimmedUrl}`] ? 'animate-spin' : ''}`} />
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleRemoveFeed(feed.url)
+                            handleRemoveFeed(trimmedUrl)
                           }}
                           className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors cursor-pointer"
                         >
@@ -207,7 +232,8 @@ export default function RSSPage() {
                       </div>
                     </div>
                   </div>
-                ))
+                  )
+                })
               )}
             </div>
           </div>

@@ -6,6 +6,7 @@ export interface Todo {
   completed?: number;
   created_at?: number;
   completed_at?: number;
+  order_index?: number;
 }
 
 export const todosApi = {
@@ -16,7 +17,7 @@ export const todosApi = {
     const db = getDatabase();
     return db.prepare(`
       SELECT * FROM todos 
-      ORDER BY completed ASC, created_at DESC
+      ORDER BY order_index ASC, created_at DESC
     `).all() as Todo[];
   },
 
@@ -125,5 +126,30 @@ export const todosApi = {
       completed: completed.count,
       pending: total.count - completed.count
     };
+  },
+
+  /**
+   * 批量更新待办事项顺序
+   */
+  updateOrder: (orderedIds: number[]): boolean => {
+    const db = getDatabase();
+    
+    try {
+      // 开始事务
+      const transaction = db.transaction(() => {
+        const updateStmt = db.prepare('UPDATE todos SET order_index = ? WHERE id = ?');
+        
+        for (let i = 0; i < orderedIds.length; i++) {
+          updateStmt.run(i, orderedIds[i]);
+        }
+      });
+      
+      transaction();
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to update todo order:', error);
+      return false;
+    }
   }
 };

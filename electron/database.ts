@@ -77,7 +77,56 @@ function initializeSchema(database: Database.Database): void {
     database.exec(schema);
     console.log('Database schema created successfully');
   } else {
-    console.log('Database schema already exists');
+    console.log('Database schema already exists, checking for missing tables and columns...');
+    
+    // 检查是否所有必要的表都存在
+    const tablesToCheck = ['todos', 'web_pages'];
+    for (const tableName of tablesToCheck) {
+      const tableExists = database.prepare(`
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name=?
+      `).get(tableName) as { name: string } | undefined;
+      
+      if (!tableExists) {
+        console.log(`Table ${tableName} does not exist, creating it...`);
+        // 只创建缺失的表，而不是整个模式
+        const tableSchema = getSchemaSQL().split(';').find(statement => 
+          statement.toLowerCase().includes(`create table if not exists ${tableName}`)
+        );
+        if (tableSchema) {
+          database.exec(tableSchema + ';');
+          console.log(`Table ${tableName} created successfully`);
+        }
+      }
+    }
+    
+    // 检查并添加缺失的列
+    const todoColumns = database.prepare(`
+      PRAGMA table_info(todos)
+    `).all() as { name: string }[];
+    
+    const todoColumnNames = todoColumns.map(col => col.name);
+    
+    // 如果todos表缺少order_index列，添加该列
+    if (!todoColumnNames.includes('order_index')) {
+      console.log('Adding order_index column to todos table...');
+      database.exec('ALTER TABLE todos ADD COLUMN order_index INTEGER DEFAULT 0');
+      console.log('order_index column added successfully');
+    }
+    
+    // 检查web_pages表是否缺少is_active列
+    const webPagesColumns = database.prepare(`
+      PRAGMA table_info(web_pages)
+    `).all() as { name: string }[];
+    
+    const webPagesColumnNames = webPagesColumns.map(col => col.name);
+    
+    // 如果web_pages表缺少is_active列，添加该列
+    if (!webPagesColumnNames.includes('is_active')) {
+      console.log('Adding is_active column to web_pages table...');
+      database.exec('ALTER TABLE web_pages ADD COLUMN is_active INTEGER DEFAULT 1');
+      console.log('is_active column added successfully');
+    }
   }
 }
 
@@ -108,11 +157,13 @@ function getSchemaSQL(): string {
       text TEXT NOT NULL,
       completed INTEGER DEFAULT 0,
       created_at INTEGER NOT NULL,
-      completed_at INTEGER
+      completed_at INTEGER,
+      order_index INTEGER DEFAULT 0
     );
 
     CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed);
     CREATE INDEX IF NOT EXISTS idx_todos_created_at ON todos(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_todos_order ON todos(order_index);
 
     -- 新闻分类表
     CREATE TABLE IF NOT EXISTS news_categories (
@@ -178,6 +229,24 @@ function getSchemaSQL(): string {
 
     CREATE INDEX IF NOT EXISTS idx_favorites_created_at ON favorites(created_at DESC);
 
+    -- 登录页面信息表
+    CREATE TABLE IF NOT EXISTS web_pages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL UNIQUE,
+      description TEXT,
+      category_id INTEGER,
+      is_favorite INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      view_count INTEGER DEFAULT 0,
+      FOREIGN KEY (category_id) REFERENCES news_categories(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_web_pages_category ON web_pages(category_id);
+    CREATE INDEX IF NOT EXISTS idx_web_pages_favorite ON web_pages(is_favorite);
+
     -- 设置表
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
@@ -195,16 +264,16 @@ function getSchemaSQL(): string {
 export function seedDefaultData(database: Database.Database): void {
   // 检查是否已有分类数据
   const categoryCount = database.prepare('SELECT COUNT(*) as count FROM news_categories').get() as { count: number };
-  
+
   if (categoryCount.count === 0) {
     console.log('Seeding default data...');
-    
+
     // 插入默认分类
     const insertCategory = database.prepare(`
       INSERT INTO news_categories (name, icon, color, sort_order, created_at)
       VALUES (?, ?, ?, ?, ?)
     `);
-    
+
     const defaultCategories = [
       { name: '科技', icon: 'cpu', color: '#3B82F6', sort: 1 },
       { name: '财经', icon: 'dollar', color: '#10B981', sort: 2 },
@@ -212,11 +281,262 @@ export function seedDefaultData(database: Database.Database): void {
       { name: '体育', icon: 'trophy', color: '#EF4444', sort: 4 },
       { name: '国际', icon: 'globe', color: '#8B5CF6', sort: 5 }
     ];
-    
+
     for (const cat of defaultCategories) {
       insertCategory.run(cat.name, cat.icon, cat.color, cat.sort, Date.now());
     }
-    
+
     console.log('Default categories seeded');
   }
+}
+
+/**
+ * 设置自定义数据库目录
+ */
+export function setCustomDatabaseDirectory(directoryPath: string): string {
+  const dbPath = path.join(directoryPath, 'moyu.db');
+  settingsStore.set('customDatabasePath', dbPath);
+  console.log('Custom database directory set:', directoryPath);
+  console.log('Database path:', dbPath);
+  return dbPath;
+}
+
+/**
+ * 将数据库迁移到新路径
+ */
+export function migrateDatabaseToNewPath(newDbPath: string): {
+  success: boolean;
+  error?: string;
+  migratedRecords?: {
+    notes: number;
+    todos: number;
+    news_categories: number;
+    news_sources: number;
+    news_items: number;
+    favorites: number;
+    settings: number;
+  };
+} {
+  try {
+    console.log('Starting database migration to:', newDbPath);
+
+    // 获取当前数据库
+    const currentDb = getDatabase();
+    const currentDbPath = getCurrentDatabasePath();
+
+    // 如果目标路径和当前路径相同，不需要迁移
+    if (currentDbPath === newDbPath) {
+      console.log('Database is already at the target path, no migration needed');
+      return {
+        success: true,
+        migratedRecords: {
+          notes: 0,
+          todos: 0,
+          news_categories: 0,
+          news_sources: 0,
+          news_items: 0,
+          favorites: 0,
+          settings: 0
+        }
+      };
+    }
+
+    // 备份当前数据库
+    const backupPath = currentDbPath + '.backup.' + Date.now();
+    const fs = require('fs');
+    fs.copyFileSync(currentDbPath, backupPath);
+    console.log('Database backed up to:', backupPath);
+
+    // 创建新数据库
+    const newDb = new Database(newDbPath);
+    newDb.pragma('foreign_keys = ON');
+
+    // 初始化新数据库结构
+    const schema = getSchemaSQL();
+    newDb.exec(schema);
+
+    // 迁移数据
+    const migratedRecords = {
+      notes: 0,
+      todos: 0,
+      news_categories: 0,
+      news_sources: 0,
+      news_items: 0,
+      favorites: 0,
+      settings: 0
+    };
+
+    // 迁移笔记
+    const notes = currentDb.prepare('SELECT * FROM notes WHERE is_deleted = 0').all() as any[];
+    const insertNote = newDb.prepare(`
+      INSERT INTO notes (id, title, content, preview_content, created_at, updated_at, is_deleted, tags)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const note of notes) {
+      insertNote.run(note.id, note.title, note.content, note.preview_content, note.created_at, note.updated_at, note.is_deleted, note.tags);
+      migratedRecords.notes++;
+    }
+
+    // 迁移待办事项
+    const todos = currentDb.prepare('SELECT * FROM todos').all() as any[];
+    const insertTodo = newDb.prepare(`
+      INSERT INTO todos (id, text, completed, created_at, completed_at)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    for (const todo of todos) {
+      insertTodo.run(todo.id, todo.text, todo.completed, todo.created_at, todo.completed_at);
+      migratedRecords.todos++;
+    }
+
+    // 迁移新闻分类
+    const categories = currentDb.prepare('SELECT * FROM news_categories').all() as any[];
+    const insertCategory = newDb.prepare(`
+      INSERT INTO news_categories (id, name, icon, color, sort_order, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    for (const cat of categories) {
+      insertCategory.run(cat.id, cat.name, cat.icon, cat.color, cat.sort_order, cat.created_at);
+      migratedRecords.news_categories++;
+    }
+
+    // 迁移新闻源
+    const sources = currentDb.prepare('SELECT * FROM news_sources').all() as any[];
+    const insertSource = newDb.prepare(`
+      INSERT INTO news_sources (id, name, url, description, category_id, is_active, fetch_interval, last_fetched_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const source of sources) {
+      insertSource.run(
+        source.id,
+        source.name,
+        source.url,
+        source.description,
+        source.category_id,
+        source.is_active,
+        source.fetch_interval,
+        source.last_fetched_at,
+        source.created_at,
+        source.updated_at
+      );
+      migratedRecords.news_sources++;
+    }
+
+    // 迁移新闻条目
+    const items = currentDb.prepare('SELECT * FROM news_items').all() as any[];
+    const insertItem = newDb.prepare(`
+      INSERT INTO news_items (id, title, link, description, content, pub_date, author, image_url, source_id, category_id, is_read, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const item of items) {
+      insertItem.run(
+        item.id,
+        item.title,
+        item.link,
+        item.description,
+        item.content,
+        item.pub_date,
+        item.author,
+        item.image_url,
+        item.source_id,
+        item.category_id,
+        item.is_read,
+        item.created_at
+      );
+      migratedRecords.news_items++;
+    }
+
+    // 迁移收藏
+    const favorites = currentDb.prepare('SELECT * FROM favorites').all() as any[];
+    const insertFavorite = newDb.prepare(`
+      INSERT INTO favorites (id, item_id, created_at)
+      VALUES (?, ?, ?)
+    `);
+    for (const fav of favorites) {
+      insertFavorite.run(fav.id, fav.item_id, fav.created_at);
+      migratedRecords.favorites++;
+    }
+
+    // 迁移设置
+    const settings = currentDb.prepare('SELECT * FROM settings').all() as any[];
+    const insertSetting = newDb.prepare(`
+      INSERT INTO settings (key, value, updated_at)
+      VALUES (?, ?, ?)
+    `);
+    for (const setting of settings) {
+      insertSetting.run(setting.key, setting.value, setting.updated_at);
+      migratedRecords.settings++;
+    }
+
+    // 关闭新数据库
+    newDb.close();
+
+    // 关闭当前数据库
+    closeDatabase();
+
+    // 更新自定义数据库路径
+    setCustomDatabasePath(newDbPath);
+
+    console.log('Database migration completed successfully');
+    console.log('Migrated records:', migratedRecords);
+
+    return {
+      success: true,
+      migratedRecords
+    };
+  } catch (error) {
+    console.error('Database migration failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred during migration'
+    };
+  }
+}
+
+/**
+ * 获取代理配置
+ */
+export function getProxy(): string | null {
+  const db = getDatabase();
+  const result = db.prepare('SELECT value FROM settings WHERE key = ?').get('proxy') as { value: string } | undefined;
+  if (result) {
+    try {
+      const config = JSON.parse(result.value);
+      return config.enabled ? config.url : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * 设置代理配置
+ */
+export function setProxy(url: string | null): void {
+  const db = getDatabase();
+  const value = JSON.stringify({
+    enabled: url !== null && url.trim() !== '',
+    url: url || ''
+  });
+  db.prepare(`
+    INSERT OR REPLACE INTO settings (key, value, updated_at)
+    VALUES (?, ?, ?)
+  `).run('proxy', value, Date.now());
+  console.log('Proxy configuration updated:', url ? 'Enabled' : 'Disabled');
+}
+
+/**
+ * 获取完整的代理配置
+ */
+export function getProxyConfig(): { enabled: boolean; url: string } {
+  const db = getDatabase();
+  const result = db.prepare('SELECT value FROM settings WHERE key = ?').get('proxy') as { value: string } | undefined;
+  if (result) {
+    try {
+      return JSON.parse(result.value);
+    } catch {
+      return { enabled: false, url: '' };
+    }
+  }
+  return { enabled: false, url: '' };
 }
