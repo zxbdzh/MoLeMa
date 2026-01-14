@@ -15,6 +15,8 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
     "@formkit/auto-animate": "^0.9.0",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
@@ -24,6 +26,7 @@
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-tooltip": "^1.2.8",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@tailwindcss/typography": "^0.5.19",
@@ -36,6 +39,7 @@
     "electron-store": "^8.2.0",
     "framer-motion": "^12.24.10",
     "gsap": "^3.14.2",
+    "https-proxy-agent": "^7.0.6",
     "lucide-react": "^0.562.0",
     "phosphor-react": "^1.4.1",
     "react": "^18.3.1",

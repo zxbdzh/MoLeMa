@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Rss, FileText, CheckSquare, Newspaper, Home, Settings as SettingsIcon, Moon, Sun, Monitor, X, Minimize, Maximize2, Menu, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Rss, FileText, CheckSquare, Newspaper, Home, Settings as SettingsIcon, Moon, Sun, Monitor, X, Minimize, Maximize2, Menu, ChevronLeft, ChevronRight, Link } from 'lucide-react'
+import Tooltip from './components/Tooltip'
 import RSSPage from './components/RSSPage'
 import ArticleReader from './components/ArticleReader'
 import StarBackground from './components/StarBackground'
 import TodoList from './components/TodoList'
 import Settings from './components/Settings'
 import Notes from './components/NotesNew'
-import News from './components/News'
+import WebPages from './components/WebPages'
 import { useRSSStore } from './store/rssStore'
 
-type TabType = 'home' | 'rss' | 'notes' | 'todo' | 'news' | 'settings'
+type TabType = 'home' | 'rss' | 'notes' | 'todo' | 'webpages' | 'settings'
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home')
@@ -113,7 +114,7 @@ function App() {
     { id: 'rss' as TabType, icon: <Rss className="w-5 h-5" />, label: 'RSS 订阅' },
     { id: 'notes' as TabType, icon: <FileText className="w-5 h-5" />, label: '记事本' },
     { id: 'todo' as TabType, icon: <CheckSquare className="w-5 h-5" />, label: '待办清单' },
-    { id: 'news' as TabType, icon: <Newspaper className="w-5 h-5" />, label: '新闻资讯' },
+    { id: 'webpages' as TabType, icon: <Link className="w-5 h-5" />, label: '网页收藏' },
     { id: 'settings' as TabType, icon: <SettingsIcon className="w-5 h-5" />, label: '设置' }
   ]
 
@@ -172,137 +173,125 @@ function App() {
         {/* 导航菜单 */}
         <nav className="flex-1 py-3 px-2 space-y-1 overflow-y-auto overflow-x-hidden">
           {tabs.map((tab, index) => (
-            <motion.button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              initial={false}
-              animate={{
-                width: '100%',
-                opacity: activeTab === tab.id ? 1 : 0.7
-              }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group overflow-hidden ${
-                activeTab === tab.id
-                  ? 'bg-blue-500/10 dark:text-white text-slate-900'
-                  : 'text-slate-500 dark:text-slate-400 text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-              style={{ 
-                minWidth: sidebarCollapsed ? undefined : '100%',
-                padding: sidebarCollapsed ? '0.625rem' : '0.625rem 0.75rem',
-                justifyContent: sidebarCollapsed ? 'center' : 'flex-start'
-              }}
-            >
-              <div className={`flex-shrink-0 ${activeTab === tab.id ? 'text-blue-400' : 'group-hover:text-blue-400 transition-colors'}`}>
-                {tab.icon}
-              </div>
-              <AnimatePresence mode="wait">
-                {!sidebarCollapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    transition={{ duration: 0.2 }}
-                    className="font-medium text-sm whitespace-nowrap"
-                  >
-                    {tab.label}
-                  </motion.span>
+            <Tooltip key={tab.id} content={tab.label} enabled={sidebarCollapsed}>
+              <motion.button
+                onClick={() => setActiveTab(tab.id)}
+                initial={false}
+                animate={{
+                  width: '100%',
+                  opacity: activeTab === tab.id ? 1 : 0.7
+                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group overflow-hidden ${
+                  activeTab === tab.id
+                    ? 'bg-blue-500/10 dark:text-white text-slate-900'
+                    : 'text-slate-500 dark:text-slate-400 text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+                style={{
+                  minWidth: sidebarCollapsed ? undefined : '100%',
+                  padding: sidebarCollapsed ? '0.625rem' : '0.625rem 0.75rem',
+                  justifyContent: sidebarCollapsed ? 'center' : 'flex-start'
+                }}
+              >
+                <div className={`flex-shrink-0 ${activeTab === tab.id ? 'text-blue-400' : 'group-hover:text-blue-400 transition-colors'}`}>
+                  {tab.icon}
+                </div>
+                <AnimatePresence mode="wait">
+                  {!sidebarCollapsed && (
+                    <motion.span
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="font-medium text-sm whitespace-nowrap"
+                    >
+                      {tab.label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 rounded-full"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
                 )}
-              </AnimatePresence>
-              {activeTab === tab.id && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 rounded-full"
-                  initial={false}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              )}
-            </motion.button>
+              </motion.button>
+            </Tooltip>
           ))}
         </nav>
 
         {/* 底部操作区域 - 固定位置 */}
-        <div className="p-2 border-t border-slate-800 dark:border-slate-800 border-slate-200 space-y-2">
-          {/* 主题切换 - 始终显示图标，展开时显示文字，收缩时hover显示文字 */}
-          <div className="group flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-            <button
-              onClick={() => handleThemeChange('light')}
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors cursor-pointer text-sm ${
-                theme === 'light' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'
-              }`}
-              title="浅色"
-            >
-              <Sun className="w-4 h-4 flex-shrink-0" />
-              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block' : ''}`}>
-                浅色
-              </span>
-            </button>
-            <button
-              onClick={() => handleThemeChange('dark')}
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors cursor-pointer text-sm ${
-                theme === 'dark' ? 'bg-slate-700 dark:bg-slate-700 text-white dark:text-white' : 'text-slate-500 dark:text-slate-400'
-              }`}
-              title="深色"
-            >
-              <Moon className="w-4 h-4 flex-shrink-0" />
-              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block' : ''}`}>
-                深色
-              </span>
-            </button>
-            <button
-              onClick={() => handleThemeChange('system')}
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors cursor-pointer text-sm ${
-                theme === 'system' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'
-              }`}
-              title="跟随系统"
-            >
-              <Monitor className="w-4 h-4 flex-shrink-0" />
-              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block' : ''}`}>
-                跟随
-              </span>
-            </button>
-          </div>
+        {!sidebarCollapsed && (
+          <div className="p-2 border-t border-slate-800 dark:border-slate-800 border-slate-200 space-y-2">
+            {/* 主题切换 */}
+            <div className="group flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+              <button
+                onClick={() => handleThemeChange('light')}
+                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors cursor-pointer text-sm ${
+                  theme === 'light' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                <Sun className="w-4 h-4 flex-shrink-0" />
+                <span className="whitespace-nowrap overflow-hidden">
+                  浅色
+                </span>
+              </button>
+              <button
+                onClick={() => handleThemeChange('dark')}
+                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors cursor-pointer text-sm ${
+                  theme === 'dark' ? 'bg-slate-700 dark:bg-slate-700 text-white dark:text-white' : 'text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                <Moon className="w-4 h-4 flex-shrink-0" />
+                <span className="whitespace-nowrap overflow-hidden">
+                  深色
+                </span>
+              </button>
+              <button
+                onClick={() => handleThemeChange('system')}
+                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors cursor-pointer text-sm ${
+                  theme === 'system' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                <Monitor className="w-4 h-4 flex-shrink-0" />
+                <span className="whitespace-nowrap overflow-hidden">
+                  跟随
+                </span>
+              </button>
+            </div>
 
-          {/* 窗口控制按钮 */}
-          <div className="group flex items-center justify-center gap-1">
-            <button
-              onClick={async () => {
-                await window.electronAPI?.fullscreenWindow?.()
-                const result = await window.electronAPI?.isFullscreen?.()
-                setIsFullscreen(result?.isFullscreen || false)
-              }}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
-              title={isFullscreen ? "退出全屏" : "全屏"}
-            >
-              {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block ml-2' : 'hidden'}`}>
-                {isFullscreen ? "退出全屏" : "全屏"}
-              </span>
-            </button>
-            <button
-              onClick={() => window.electronAPI?.minimizeWindow?.()}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
-              title="最小化"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                <rect x="2" y="5" width="8" height="2" rx="0.5" fill="currentColor" />
-              </svg>
-              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block ml-2' : 'hidden'}`}>
-                最小化
-              </span>
-            </button>
-            <button
-              onClick={() => window.electronAPI?.closeWindow?.()}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-500 dark:text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
-              title="关闭"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block ml-2' : 'hidden'}`}>
-                关闭
-              </span>
-            </button>
+            {/* 窗口控制按钮 */}
+            <div className="group flex items-center justify-center gap-1">
+              <button
+                onClick={async () => {
+                  await window.electronAPI?.fullscreenWindow?.()
+                  const result = await window.electronAPI?.isFullscreen?.()
+                  setIsFullscreen(result?.isFullscreen || false)
+                }}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
+              >
+                {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                onClick={() => window.electronAPI?.minimizeWindow?.()}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                  <rect x="2" y="5" width="8" height="2" rx="0.5" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                onClick={() => window.electronAPI?.closeWindow?.()}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-500 dark:text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </motion.aside>
 
       {/* 主内容区域 */}
@@ -385,10 +374,10 @@ function App() {
                       index={2}
                     />
                     <FeatureCard
-                      icon={<Newspaper className="w-7 h-7 text-orange-400" />}
-                      title="新闻资讯"
-                      description="浏览最新的技术新闻"
-                      onClick={() => setActiveTab('news')}
+                      icon={<Link className="w-7 h-7 text-orange-400" />}
+                      title="网页收藏"
+                      description="收藏和快速访问喜欢的网站"
+                      onClick={() => setActiveTab('webpages')}
                       index={3}
                     />
                   </div>
@@ -398,7 +387,7 @@ function App() {
               {activeTab === 'rss' && <RSSPage />}
               {activeTab === 'notes' && <Notes />}
               {activeTab === 'todo' && <TodoList />}
-              {activeTab === 'news' && <News />}
+              {activeTab === 'webpages' && <WebPages />}
               {activeTab === 'settings' && <Settings />}
             </motion.div>
           </AnimatePresence>

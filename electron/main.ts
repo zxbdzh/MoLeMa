@@ -1,5 +1,6 @@
 import { app, BrowserWindow, globalShortcut, Tray, Menu, nativeImage, ipcMain, dialog } from 'electron'
 import path from 'node:path'
+import fs from 'node:fs'
 import Parser from 'rss-parser'
 import Store from 'electron-store'
 
@@ -11,11 +12,14 @@ declare global {
     }
   }
 }
-import { getDatabase, closeDatabase, seedDefaultData, getCurrentDatabasePath } from './database'
+import { getDatabase, closeDatabase, seedDefaultData, getCurrentDatabasePath, setCustomDatabaseDirectory, setCustomDatabasePath, migrateDatabaseToNewPath, getProxy, setProxy, getProxyConfig } from './database'
 import { runMigration } from './migration'
 import { notesApi } from './api/notesApi'
 import { todosApi } from './api/todosApi'
 import { newsApi } from './api/newsApi'
+import { webPagesApi } from './api/webPagesApi'
+import { testRSSFeed } from './services/rssFetcher'
+import { testWebsiteNews } from './services/websiteNewsFetcher'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -78,7 +82,8 @@ function createWindow() {
       preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: true
+      webSecurity: true,
+      webviewTag: true // 启用webview标签
     },
     icon: path.join(__dirname, '../../resources/icon.png')
   })
@@ -118,7 +123,7 @@ function createWindow() {
         cancelId: 2,
         title: '关闭应用',
         message: '您希望如何关闭应用？',
-        detail: '最小化到托盘后，应用会在后台继续运行，可通过托盘图标或快捷键快速恢复。'
+        detail: '最小化到托盘后，应用会在后台继续运行，可通过托盘图标或快捷键快速恢复'
       }).then(({ response }) => {
         if (response === 0) {
           // 最小化到托盘
@@ -203,7 +208,7 @@ function registerGlobalShortcuts() {
     toggleWindow()
   })
 
-  console.log('全局快捷键已注册：')
+  console.log('全局快捷键已注册')
   console.log(`  ${shortcuts.toggleWindow}: 显示/隐藏窗口`)
 }
 
@@ -246,9 +251,11 @@ app.on('window-all-closed', () => {
 // IPC 处理程序 - RSS 相关
 ipcMain.handle('rss:addFeed', async (_event, url: string) => {
   try {
-    const feed = await parser.parseURL(url)
+    // 去除URL前后空格
+    const trimmedUrl = url.trim()
+    const feed = await parser.parseURL(trimmedUrl)
     const feedData = {
-      url,
+      url: trimmedUrl,
       title: feed.title || 'Unknown Feed',
       description: feed.description || '',
       items: feed.items.map((item) => ({
@@ -262,7 +269,7 @@ ipcMain.handle('rss:addFeed', async (_event, url: string) => {
     }
 
     const feeds = getRSSFeeds()
-    feeds[url] = feedData
+    feeds[trimmedUrl] = feedData
     saveRSSFeeds(feeds)
     
     return { success: true, feed: feedData }
@@ -274,8 +281,10 @@ ipcMain.handle('rss:addFeed', async (_event, url: string) => {
 
 ipcMain.handle('rss:removeFeed', async (_event, url: string) => {
   try {
+    // 去除URL前后空格
+    const trimmedUrl = url.trim()
     const feeds = getRSSFeeds()
-    delete feeds[url]
+    delete feeds[trimmedUrl]
     saveRSSFeeds(feeds)
     return { success: true }
   } catch (error) {
@@ -286,9 +295,11 @@ ipcMain.handle('rss:removeFeed', async (_event, url: string) => {
 
 ipcMain.handle('rss:refreshFeed', async (_event, url: string) => {
   try {
-    const feed = await parser.parseURL(url)
+    // 去除URL前后空格
+    const trimmedUrl = url.trim()
+    const feed = await parser.parseURL(trimmedUrl)
     const feedData = {
-      url,
+      url: trimmedUrl,
       title: feed.title || 'Unknown Feed',
       description: feed.description || '',
       items: feed.items.map((item) => ({
@@ -302,7 +313,7 @@ ipcMain.handle('rss:refreshFeed', async (_event, url: string) => {
     }
 
     const feeds = getRSSFeeds()
-    feeds[url] = feedData
+    feeds[trimmedUrl] = feedData
     saveRSSFeeds(feeds)
     
     return { success: true, feed: feedData }
@@ -314,7 +325,11 @@ ipcMain.handle('rss:refreshFeed', async (_event, url: string) => {
 
 ipcMain.handle('rss:getFeeds', async () => {
   try {
-    const feeds = Object.values(getRSSFeeds())
+    // 确保返回的feeds URL没有前后空格
+    const feeds = Object.values(getRSSFeeds()).map(feed => ({
+      ...feed,
+      url: feed.url.trim()
+    }))
     return { success: true, feeds }
   } catch (error) {
     console.error('Failed to get RSS feeds:', error)
@@ -324,10 +339,12 @@ ipcMain.handle('rss:getFeeds', async () => {
 
 ipcMain.handle('rss:getFeed', async (_event, url: string) => {
   try {
+    // 去除URL前后空格
+    const trimmedUrl = url.trim()
     const feeds = getRSSFeeds()
-    const feed = feeds[url]
+    const feed = feeds[trimmedUrl]
     if (feed) {
-      return { success: true, feed }
+      return { success: true, feed: { ...feed, url: trimmedUrl } }
     } else {
       return { success: false, error: 'Feed not found' }
     }
@@ -526,37 +543,101 @@ const domesticNewsSources = [
 
 ipcMain.handle('news:getDomesticNews', async (_event, category?: string) => {
   try {
-    const allNews: any[] = []
-    
-    // 过滤新闻源
-    const sources = category 
-      ? domesticNewsSources.filter(s => s.category === category)
-      : domesticNewsSources
-    
-    // 并发获取所有新闻源
-    const newsPromises = sources.map(async (source) => {
-      try {
-        const feed = await parser.parseURL(source.url)
-        return feed.items?.map((item, index) => ({
-          id: `${source.name}-${index}`,
-          title: item.title || 'No Title',
-          description: item.contentSnippet || item.content || '',
-          url: item.link || '',
-          publishedAt: item.pubDate || new Date().toISOString(),
-          source: source.name,
-          category: source.category,
-          image: extractImage(item.content || item.contentSnippet || '')
-        })) || []
-      } catch (error) {
-        console.error(`Failed to parse ${source.name}:`, error)
-        return []
+    // 从数据库获取新闻项
+    // 如果提供了分类ID，需要先获取分类信息
+    let categoryId: number | undefined;
+    if (category && category !== 'all') {
+      // 尝试将字符串分类映射到数据库中的分类ID
+      const categories = newsApi.getAllCategories();
+      
+      // 根据前端分类ID映射到数据库分类名称
+      let categoryName: string | undefined;
+      switch (category) {
+        case 'tech':
+          categoryName = '科技';
+          break;
+        case 'news':
+          categoryName = '资讯'; // 如果数据库中没有资讯分类，可能需要创建或使用财经
+          break;
+        case 'startup':
+          categoryName = '创业';
+          break;
+        case 'ai':
+          categoryName = 'AI';
+          break;
+        default:
+          categoryName = category;
       }
-    })
+
+      // 如果特定分类不存在，尝试使用相近的分类
+      if (categoryName) {
+        for (const cat of categories) {
+          if (cat.name.includes(categoryName) || categoryName.includes(cat.name)) {
+            categoryId = cat.id;
+            break;
+          }
+        }
+        
+        // 如果还是没找到，尝试用相近的分类
+        if (categoryId === undefined) {
+          if (category === 'news') {
+            // 对于资讯，尝试财经分类
+            for (const cat of categories) {
+              if (cat.name.includes('财经') || cat.name.includes('新闻') || cat.name.includes('资讯')) {
+                categoryId = cat.id;
+                break;
+              }
+            }
+          } else if (category === 'startup') {
+            // 对于创业，尝试财经或商业相关分类
+            for (const cat of categories) {
+              if (cat.name.includes('财经') || cat.name.includes('商业') || cat.name.includes('创业')) {
+                categoryId = cat.id;
+                break;
+              }
+            }
+          } else if (category === 'ai') {
+            // 对于AI，尝试科技或智能相关分类
+            for (const cat of categories) {
+              if (cat.name.includes('科技') || cat.name.includes('智能') || cat.name.includes('AI')) {
+                categoryId = cat.id;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
     
-    const newsArrays = await Promise.all(newsPromises)
-    allNews.push(...newsArrays.flat())
+    // 从数据库获取新闻项
+    const newsItems = newsApi.getNewsItems(50, 0, categoryId);
     
-    // 按发布时间排序
+    // 转换数据库格式到前端期望的格式
+    const allNews = newsItems.map(item => {
+      // 获取新闻源名称
+      const sourceName = item.source_name || `Source ${item.source_id}`;
+      
+      // 获取分类名称
+      let categoryLabel = 'news';
+      if (item.category_name) {
+        if (item.category_name.includes('技术')) categoryLabel = 'tech';
+        else if (item.category_name.includes('创业')) categoryLabel = 'startup';
+        else if (item.category_name.includes('AI')) categoryLabel = 'ai';
+      }
+      
+      return {
+        id: item.id?.toString() || `db-${item.link}`,
+        title: item.title,
+        description: item.description || item.content || '',
+        url: item.link,
+        publishedAt: item.pub_date ? new Date(item.pub_date).toISOString() : new Date().toISOString(),
+        source: sourceName,
+        category: categoryLabel,
+        image: item.image_url
+      };
+    });
+    
+    // 按发布时间排序（从新到旧）
     allNews.sort((a, b) => 
       new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
     )
@@ -575,7 +656,7 @@ function extractImage(html: string): string | undefined {
   return imgMatch ? imgMatch[1] : undefined
 }
 
-// ==================== 笔记 IPC 处理器 ====================
+// ==================== 笔记 IPC 处理器 =====================
 
 ipcMain.handle('notes:getAll', () => {
   try {
@@ -586,7 +667,7 @@ ipcMain.handle('notes:getAll', () => {
   }
 })
 
-// ==================== 数据库路径 IPC 处理器 ====================
+// ==================== 数据库路径 IPC 处理器 =====================
 
 ipcMain.handle('database:getPath', () => {
   try {
@@ -595,6 +676,91 @@ ipcMain.handle('database:getPath', () => {
   } catch (error) {
     console.error('Failed to get database path:', error)
     return { success: false, error: 'Failed to get database path' }
+  }
+})
+
+ipcMain.handle('database:setDirectory', async (_event, directoryPath: string) => {
+  try {
+    console.log('Setting database directory:', directoryPath)
+
+    // 验证目录路径
+    if (!fs.existsSync(directoryPath)) {
+      return { success: false, error: '指定的目录不存在' }
+    }
+
+    // 检查是否是目录
+    const stats = fs.statSync(directoryPath)
+    if (!stats.isDirectory()) {
+      return { success: false, error: '指定的路径不是目录' }
+    }
+
+    // 构建新的数据库路径
+    const newDbPath = path.join(directoryPath, 'moyu.db')
+
+    // 先执行迁移（迁移成功后才更新路径）
+    const result = migrateDatabaseToNewPath(newDbPath)
+
+    if (result.success) {
+      // 迁移成功，更新路径
+      setCustomDatabaseDirectory(directoryPath)
+
+      // 通知用户需要重启应用
+      return {
+        success: true,
+        message: '数据库已成功迁移到新位置，请重启应用以使更改生效',
+        migratedRecords: result.migratedRecords,
+        requiresRestart: true
+      }
+    } else {
+      return {
+        success: false,
+        error: result.error || '数据库迁移失败'
+      }
+    }
+  } catch (error) {
+    console.error('Failed to set database directory:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '设置数据库目录失败'
+    }
+  }
+})
+
+ipcMain.handle('database:setPath', async (_event, dbPath: string) => {
+  try {
+    console.log('Setting database path:', dbPath)
+
+    // 验证文件路径
+    const directoryPath = path.dirname(dbPath)
+
+    if (!fs.existsSync(directoryPath)) {
+      return { success: false, error: '数据库文件所在的目录不存在' }
+    }
+
+    // 执行迁移
+    setCustomDatabasePath(dbPath)
+
+    const result = migrateDatabaseToNewPath(dbPath)
+
+    if (result.success) {
+      return {
+        success: true,
+        message: '数据库已成功迁移到新位置，请重启应用以使更改生效',
+        migratedRecords: result.migratedRecords,
+        requiresRestart: true
+      }
+    } else {
+      return {
+        success: false,
+        error: result.error || '数据库迁移失败'
+      }
+    }
+  } catch (error) {
+    console.error('Failed to set database path:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '设置数据库路径失败'
+    }
   }
 })
 
@@ -761,6 +927,16 @@ ipcMain.handle('todos:getStats', () => {
   } catch (error) {
     console.error('Failed to get todo stats:', error)
     return { success: false, error: 'Failed to get todo stats' }
+  }
+})
+
+ipcMain.handle('todos:updateOrder', (_event, orderedIds: number[]) => {
+  try {
+    const result = todosApi.updateOrder(orderedIds);
+    return { success: result };
+  } catch (error) {
+    console.error('Failed to update todo order:', error);
+    return { success: false, error: 'Failed to update todo order' };
   }
 })
 
@@ -1090,3 +1266,254 @@ ipcMain.handle('favorites:isFavorite', (_event, itemId: number) => {
     return { success: false, error: 'Failed to check favorite' }
   }
 })
+
+// ==================== 代理 IPC 处理器 ====================
+
+ipcMain.handle('proxy:get', () => {
+  try {
+    const config = getProxyConfig()
+    return { success: true, config }
+  } catch (error) {
+    console.error('Failed to get proxy config:', error)
+    return { success: false, error: 'Failed to get proxy config' }
+  }
+})
+
+ipcMain.handle('proxy:set', async (_event, url: string | null) => {
+  try {
+    setProxy(url)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to set proxy:', error)
+    return { success: false, error: 'Failed to set proxy' }
+  }
+})
+
+ipcMain.handle('proxy:test', async (_event, url: string) => {
+  try {
+    // 临时设置代理进行测试
+    const originalProxy = getProxy()
+    setProxy(url)
+
+    // 测试代理连接
+    const testUrl = 'https://www.google.com'
+    const https = require('https')
+    const HttpsProxyAgent = require('https-proxy-agent').HttpsProxyAgent
+
+    const agent = new HttpsProxyAgent(url)
+    const options = {
+      agent,
+      timeout: 5000
+    }
+
+    return new Promise((resolve) => {
+      const req = https.get(testUrl, options, (res: any) => {
+        // 恢复原代理设置        setProxy(originalProxy)
+        resolve({
+          success: true,
+          message: '代理连接成功',
+          statusCode: res.statusCode
+        })
+      })
+
+      req.on('error', (err: any) => {
+        // 恢复原代理设置        setProxy(originalProxy)
+        resolve({
+          success: false,
+          error: err.message || '代理连接失败'
+        })
+      })
+
+      req.on('timeout', () => {
+        req.destroy()
+        // 恢复原代理设�?        setProxy(originalProxy)
+        resolve({
+          success: false,
+          error: '代理连接超时'
+        })
+      })
+    })
+  } catch (error) {
+    console.error('Failed to test proxy:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to test proxy'
+    }
+  }
+})
+
+// ==================== 新闻源测试 IPC 处理器 ====================
+
+ipcMain.handle('newsSources:test', async (_event, url: string) => {
+  try {
+    // 检查URL是否为RSS源（基于常见RSS文件扩展名或路径）
+    const rssPattern = /\.(xml|rss|rdf|atom|feed|feed\.xml)$/i;
+    const isRSS = rssPattern.test(url) || url.includes('/rss') || url.includes('/feed') || url.includes('feed=') || url.includes('rss=');
+    
+    let result;
+    if (isRSS) {
+      result = await testRSSFeed(url);
+    } else {
+      // 如果不是RSS格式，尝试作为网站进行测试
+      result = await testWebsiteNews(url);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Failed to test news source:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to test news source'
+    }
+  }
+})
+
+// ==================== 管理网页收藏 IPC 处理器 ====================
+
+ipcMain.handle('webPages:getAll', () => {
+  try {
+    return { success: true, webPages: webPagesApi.getAll() };
+  } catch (error) {
+    console.error('Failed to get web pages:', error);
+    return { success: false, error: 'Failed to get web pages' };
+  }
+});
+
+ipcMain.handle('webPages:getById', (_event, id: number) => {
+  try {
+    const webPage = webPagesApi.getById(id);
+    if (webPage) {
+      return { success: true, webPage };
+    } else {
+      return { success: false, error: 'Web page not found' };
+    }
+  } catch (error) {
+    console.error('Failed to get web page:', error);
+    return { success: false, error: 'Failed to get web page' };
+  }
+});
+
+ipcMain.handle('webPages:getByUrl', (_event, url: string) => {
+  try {
+    const webPage = webPagesApi.getByUrl(url);
+    if (webPage) {
+      return { success: true, webPage };
+    } else {
+      return { success: false, error: 'Web page not found' };
+    }
+  } catch (error) {
+    console.error('Failed to get web page by URL:', error);
+    return { success: false, error: 'Failed to get web page by URL' };
+  }
+});
+
+ipcMain.handle('webPages:create', (_event, webPage: any) => {
+  try {
+    const id = webPagesApi.create(webPage);
+    return { success: true, id };
+  } catch (error) {
+    console.error('Failed to create web page:', error);
+    return { success: false, error: 'Failed to create web page' };
+  }
+});
+
+ipcMain.handle('webPages:update', (_event, id: number, webPage: any) => {
+  try {
+    const success = webPagesApi.update(id, webPage);
+    if (success) {
+      return { success: true };
+    } else {
+      return { success: false, error: 'Failed to update web page' };
+    }
+  } catch (error) {
+    console.error('Failed to update web page:', error);
+    return { success: false, error: 'Failed to update web page' };
+  }
+});
+
+ipcMain.handle('webPages:delete', (_event, id: number) => {
+  try {
+    const success = webPagesApi.delete(id);
+    if (success) {
+      return { success: true };
+    } else {
+      return { success: false, error: 'Failed to delete web page' };
+    }
+  } catch (error) {
+    console.error('Failed to delete web page:', error);
+    return { success: false, error: 'Failed to delete web page' };
+  }
+});
+
+
+
+ipcMain.handle('webPages:toggleFavorite', (_event, id: number) => {
+  try {
+    const success = webPagesApi.toggleFavorite(id);
+    if (success) {
+      return { success: true };
+    } else {
+      return { success: false, error: 'Failed to toggle favorite' };
+    }
+  } catch (error) {
+    console.error('Failed to toggle favorite:', error);
+    return { success: false, error: 'Failed to toggle favorite' };
+  }
+});
+
+
+
+ipcMain.handle('webPages:getFavorites', () => {
+  try {
+    return { success: true, webPages: webPagesApi.getFavorites() };
+  } catch (error) {
+    console.error('Failed to get favorite web pages:', error);
+    return { success: false, error: 'Failed to get favorite web pages' };
+  }
+});
+
+// 测试网站可达性
+ipcMain.handle('webPages:test', async (_event, url: string) => {
+  try {
+    // 实现基本的网站可达性测试，使用 GET 方法获取更多信息
+    const response = await fetch(url, { timeout: 5000 });
+    
+    if (response.ok) {
+      // 获取网页标题
+      const text = await response.text();
+      const titleMatch = text.match(/<title>([^<]+)<\/title>/i);
+      const title = titleMatch ? titleMatch[1] : '未知网站';
+      
+      return { 
+        success: true, 
+        pageInfo: { title } 
+      };
+    } else {
+      return { 
+        success: false, 
+        error: `HTTP错误: ${response.status} ${response.statusText}` 
+      };
+    }
+  } catch (error) {
+    console.error('Failed to test web page:', error);
+    let errorMsg = '测试失败';
+    
+    // 提供更详细的错误信息
+    if (error instanceof Error) {
+      if (error.name === 'TypeError') {
+        errorMsg = 'URL格式错误或网络不可达';
+      } else if (error.name === 'AbortError') {
+        errorMsg = '请求超时，网站可能无法访问';
+      } else {
+        errorMsg = `测试失败: ${error.message}`;
+      }
+    }
+    
+    return { 
+      success: false, 
+      error: errorMsg 
+    };
+  }
+});
+
+

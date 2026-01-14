@@ -1,5 +1,7 @@
 import Parser from 'rss-parser';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import { newsApi } from '../api/newsApi';
+import { getProxy } from '../database';
 
 const parser = new Parser();
 
@@ -24,7 +26,7 @@ function extractImageUrl(item: any): string | null {
   if (item['media:content'] && item['media:content'].$) {
     return item['media:content'].$.url;
   }
-  
+
   // 尝试从 content 中提取 img 标签
   if (item.content) {
     const imgMatch = item.content.match(/<img[^>]+src=["']([^"']+)["']/i);
@@ -32,8 +34,19 @@ function extractImageUrl(item: any): string | null {
       return imgMatch[1];
     }
   }
-  
+
   return null;
+}
+
+/**
+ * 获取代理代理配置
+ */
+function getProxyAgent() {
+  const proxyUrl = getProxy();
+  if (proxyUrl) {
+    return new HttpsProxyAgent(proxyUrl);
+  }
+  return undefined;
 }
 
 /**
@@ -47,14 +60,20 @@ export async function fetchRSSFeed(sourceId: number): Promise<FetchResult> {
     }
 
     console.log(`Fetching RSS feed: ${source.name} (${source.url})`);
-    
-    const feed = await parser.parseURL(source.url);
-    
+
+    const proxyAgent = getProxyAgent();
+    const feed = await parser.parseURL(source.url, {
+      timeout: 10000,
+      customFields: {
+        item: ['media:thumbnail', 'media:content']
+      }
+    });
+
     let itemCount = 0;
     for (const item of feed.items) {
       try {
         const pubDate = item.pubDate ? new Date(item.pubDate).getTime() : Date.now();
-        
+
         newsApi.createNewsItem({
           title: item.title || '无标题',
           link: item.link || '',
@@ -80,10 +99,10 @@ export async function fetchRSSFeed(sourceId: number): Promise<FetchResult> {
   } catch (error: any) {
     const errorMessage = error.message || '抓取 RSS 源失败';
     console.error(`✗ Failed to fetch RSS feed ${sourceId}:`, errorMessage);
-    return { 
-      success: false, 
-      sourceId, 
-      error: errorMessage 
+    return {
+      success: false,
+      sourceId,
+      error: errorMessage
     };
   }
 }
@@ -94,8 +113,14 @@ export async function fetchRSSFeed(sourceId: number): Promise<FetchResult> {
 export async function testRSSFeed(url: string): Promise<{ success: boolean; error?: string; feedInfo?: any }> {
   try {
     console.log(`Testing RSS feed: ${url}`);
-    const feed = await parser.parseURL(url);
-    
+    const proxyAgent = getProxyAgent();
+    const feed = await parser.parseURL(url, {
+      timeout: 10000,
+      customFields: {
+        item: ['media:thumbnail', 'media:content']
+      }
+    });
+
     return {
       success: true,
       feedInfo: {
@@ -119,26 +144,26 @@ export async function testRSSFeed(url: string): Promise<{ success: boolean; erro
  */
 export async function fetchAllActiveSources(): Promise<FetchResult[]> {
   console.log('Fetching all active RSS sources...');
-  
+
   const sources = newsApi.getActiveSources();
   const results: FetchResult[] = [];
-  
+
   for (const source of sources) {
     const result = await fetchRSSFeed(source.id);
     results.push(result);
   }
-  
+
   // 统计结果
   const successCount = results.filter(r => r.success).length;
   const totalItems = results.reduce((sum, r) => sum + (r.itemCount || 0), 0);
-  
+
   console.log(`\n=== RSS Fetch Summary ===`);
   console.log(`Total sources: ${sources.length}`);
   console.log(`Successful: ${successCount}`);
   console.log(`Failed: ${sources.length - successCount}`);
   console.log(`Total items fetched: ${totalItems}`);
   console.log('========================\n');
-  
+
   return results;
 }
 
@@ -147,16 +172,16 @@ export async function fetchAllActiveSources(): Promise<FetchResult[]> {
  */
 export async function fetchSourcesByCategory(categoryId: number): Promise<FetchResult[]> {
   console.log(`Fetching RSS sources for category ${categoryId}...`);
-  
+
   const allSources = newsApi.getAllSources();
   const categorySources = allSources.filter(s => s.category_id === categoryId && s.is_active === 1);
-  
+
   const results: FetchResult[] = [];
-  
+
   for (const source of categorySources) {
     const result = await fetchRSSFeed(source.id);
     results.push(result);
   }
-  
+
   return results;
 }

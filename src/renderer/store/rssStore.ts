@@ -46,7 +46,17 @@ export const useRSSStore = create<RSSStore>()(
         if (window.electronAPI && window.electronAPI.rss) {
           const result = await window.electronAPI.rss.getFeeds()
           if (result.success) {
-            set({ feeds: result.feeds })
+            // 处理每个feed的URL，去除前后空格
+            const processedFeeds = result.feeds.map(feed => ({
+              ...feed,
+              url: feed.url.trim()
+            }))
+            
+            // 去重处理，避免重复feed
+            const uniqueFeeds = Array.from(
+              new Map(processedFeeds.map(feed => [feed.url, feed])).values()
+            )
+            set({ feeds: uniqueFeeds })
           }
         }
       },
@@ -64,10 +74,25 @@ export const useRSSStore = create<RSSStore>()(
 
       addFeed: async (url: string) => {
         if (window.electronAPI && window.electronAPI.rss) {
-          const result = await window.electronAPI.rss.addFeed(url)
+          // 去除URL前后空格
+          const trimmedUrl = url.trim()
+          
+          // 检查feed是否已存在
+          const existingFeeds = get().feeds
+          if (existingFeeds.some(feed => feed.url === trimmedUrl)) {
+            alert('该RSS订阅已存在，请不要重复添加！')
+            return
+          }
+          
+          const result = await window.electronAPI.rss.addFeed(trimmedUrl)
           if (result.success) {
+            // 确保返回的feed url也没有空格
+            const processedFeed = {
+              ...result.feed,
+              url: result.feed.url.trim()
+            }
             set((state) => ({
-              feeds: [...state.feeds, result.feed]
+              feeds: [...state.feeds, processedFeed]
             }))
           } else {
             throw new Error(result.error || 'Failed to add RSS feed')
@@ -77,11 +102,14 @@ export const useRSSStore = create<RSSStore>()(
 
       removeFeed: async (url: string) => {
         if (window.electronAPI && window.electronAPI.rss) {
-          const result = await window.electronAPI.rss.removeFeed(url)
+          // 去除URL前后空格
+          const trimmedUrl = url.trim()
+          
+          const result = await window.electronAPI.rss.removeFeed(trimmedUrl)
           if (result.success) {
             set((state) => ({
-              feeds: state.feeds.filter((feed) => feed.url !== url),
-              currentFeed: state.currentFeed?.url === url ? null : state.currentFeed
+              feeds: state.feeds.filter((feed) => feed.url !== trimmedUrl),
+              currentFeed: state.currentFeed?.url === trimmedUrl ? null : state.currentFeed
             }))
           } else {
             throw new Error(result.error || 'Failed to remove RSS feed')
@@ -99,11 +127,20 @@ export const useRSSStore = create<RSSStore>()(
 
       refreshFeed: async (url: string) => {
         if (window.electronAPI && window.electronAPI.rss) {
-          const result = await window.electronAPI.rss.refreshFeed(url)
+          // 去除URL前后空格
+          const trimmedUrl = url.trim()
+          
+          const result = await window.electronAPI.rss.refreshFeed(trimmedUrl)
           if (result.success) {
+            // 确保返回的feed url也没有空格
+            const processedFeed = {
+              ...result.feed,
+              url: result.feed.url.trim()
+            }
+            
             set((state) => ({
-              feeds: state.feeds.map((f) => (f.url === url ? result.feed : f)),
-              currentFeed: state.currentFeed?.url === url ? result.feed : state.currentFeed
+              feeds: state.feeds.map((f) => (f.url === trimmedUrl ? processedFeed : f)),
+              currentFeed: state.currentFeed?.url === trimmedUrl ? processedFeed : state.currentFeed
             }))
           } else {
             throw new Error(result.error || 'Failed to refresh RSS feed')

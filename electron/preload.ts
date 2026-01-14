@@ -43,7 +43,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 数据库 API
   database: {
     getPath: () => ipcRenderer.invoke('database:getPath'),
-    setPath: (path: string) => ipcRenderer.invoke('database:setPath', path)
+    setPath: (path: string) => ipcRenderer.invoke('database:setPath', path),
+    setDirectory: (directoryPath: string) => ipcRenderer.invoke('database:setDirectory', directoryPath)
   },
 
   // 笔记 API
@@ -66,7 +67,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     toggle: (id: number) => ipcRenderer.invoke('todos:toggle', id),
     delete: (id: number) => ipcRenderer.invoke('todos:delete', id),
     clearCompleted: () => ipcRenderer.invoke('todos:clearCompleted'),
-    getStats: () => ipcRenderer.invoke('todos:getStats')
+    getStats: () => ipcRenderer.invoke('todos:getStats'),
+    updateOrder: (orderedIds: number[]) => ipcRenderer.invoke('todos:updateOrder', orderedIds)
   },
 
   // 新闻分类 API
@@ -86,7 +88,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getByUrl: (url: string) => ipcRenderer.invoke('newsSources:getByUrl', url),
     create: (source: any) => ipcRenderer.invoke('newsSources:create', source),
     update: (id: number, source: any) => ipcRenderer.invoke('newsSources:update', id, source),
-    delete: (id: number) => ipcRenderer.invoke('newsSources:delete', id)
+    delete: (id: number) => ipcRenderer.invoke('newsSources:delete', id),
+    test: (url: string) => ipcRenderer.invoke('newsSources:test', url)
   },
 
   // 新闻条目 API
@@ -124,6 +127,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   dialog: {
     selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
     selectDatabaseFile: () => ipcRenderer.invoke('dialog:selectDatabaseFile')
+  },
+
+  // 代理 API
+  proxy: {
+    get: () => ipcRenderer.invoke('proxy:get'),
+    set: (url: string | null) => ipcRenderer.invoke('proxy:set', url),
+    test: (url: string) => ipcRenderer.invoke('proxy:test', url)
+  },
+
+  // 网页收藏 API
+  webPages: {
+    getAll: () => ipcRenderer.invoke('webPages:getAll'),
+    getById: (id: number) => ipcRenderer.invoke('webPages:getById', id),
+    getByUrl: (url: string) => ipcRenderer.invoke('webPages:getByUrl', url),
+    create: (webPage: any) => ipcRenderer.invoke('webPages:create', webPage),
+    update: (id: number, webPage: any) => ipcRenderer.invoke('webPages:update', id, webPage),
+    delete: (id: number) => ipcRenderer.invoke('webPages:delete', id),
+    toggleFavorite: (id: number) => ipcRenderer.invoke('webPages:toggleFavorite', id),
+    getFavorites: () => ipcRenderer.invoke('webPages:getFavorites'),
+    test: (url: string) => ipcRenderer.invoke('webPages:test', url)
   },
 
   // 平台信息

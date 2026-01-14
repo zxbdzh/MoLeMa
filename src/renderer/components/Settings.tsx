@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Keyboard, Save, RotateCcw, FolderOpen, Info } from 'lucide-react'
+import { Keyboard, Save, RotateCcw, FolderOpen, Info, Globe, Check, X, RefreshCw } from 'lucide-react'
 import { Card3D } from './3DCard'
 
 interface ShortcutConfig {
@@ -15,6 +15,13 @@ export default function Settings() {
   const [dataPath, setDataPath] = useState<string>('')
   const [pathSaved, setPathSaved] = useState(false)
   const [pathError, setPathError] = useState<string | null>(null)
+  const [migrationResult, setMigrationResult] = useState<any>(null)
+
+  // 代理设置
+  const [proxyUrl, setProxyUrl] = useState('')
+  const [proxyEnabled, setProxyEnabled] = useState(false)
+  const [proxyTesting, setProxyTesting] = useState(false)
+  const [proxyTestResult, setProxyTestResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
 
   useEffect(() => {
     window.electronAPI?.shortcuts?.get().then((config) => {
@@ -26,6 +33,13 @@ export default function Settings() {
     window.electronAPI?.database?.getPath().then((result) => {
       if (result?.success) {
         setDataPath(result.path)
+      }
+    })
+
+    window.electronAPI?.proxy?.get().then((result) => {
+      if (result?.success) {
+        setProxyEnabled(result.config.enabled)
+        setProxyUrl(result.config.url)
       }
     })
   }, [])
@@ -75,21 +89,54 @@ export default function Settings() {
   
   const handleSelectDataPath = async () => {
     try {
-      const result = await window.electronAPI?.dialog?.selectDatabaseFile()
+      const result = await window.electronAPI?.dialog?.selectDirectory()
       if (result?.success && result.path) {
-        const setResult = await window.electronAPI?.database?.setPath(result.path)
+        const setResult = await window.electronAPI?.database?.setDirectory(result.path)
         if (setResult?.success) {
           setDataPath(result.path)
           setPathSaved(true)
           setPathError(null)
-          setTimeout(() => setPathSaved(false), 3000)
+          setMigrationResult(setResult.migratedRecords)
+          setTimeout(() => setPathSaved(false), 5000)
         } else {
           setPathError(setResult?.error || '设置数据库路径失败')
+          setMigrationResult(null)
         }
       }
     } catch (error) {
-      console.error('选择数据库文件失败:', error)
-      setPathError('选择数据库文件失败')
+      console.error('选择数据库文件夹失败:', error)
+      setPathError('选择数据库文件夹失败')
+      setMigrationResult(null)
+    }
+  }
+
+  const handleTestProxy = async () => {
+    if (!proxyUrl.trim()) {
+      setProxyTestResult({ success: false, error: '请输入代理地址' })
+      return
+    }
+
+    setProxyTesting(true)
+    setProxyTestResult(null)
+
+    try {
+      const result = await window.electronAPI?.proxy?.test(proxyUrl)
+      setProxyTestResult(result)
+    } catch (error) {
+      setProxyTestResult({ success: false, error: '测试失败' })
+    } finally {
+      setProxyTesting(false)
+    }
+  }
+
+  const handleSaveProxy = async () => {
+    try {
+      const url = proxyEnabled ? proxyUrl : null
+      await window.electronAPI?.proxy?.set(url)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (error) {
+      console.error('保存代理设置失败:', error)
     }
   }
   
@@ -164,7 +211,7 @@ export default function Settings() {
           <h2 className="text-3xl font-bold font-heading mb-2 dark:text-white text-slate-900">
             数据库设置
           </h2>
-          <p className="text-slate-400 dark:text-slate-400 text-slate-600">配置数据库文件路径</p>
+          <p className="text-slate-400 dark:text-slate-400 text-slate-600">配置数据库存储位置</p>
         </div>
 
         <Card3D className="p-6">
@@ -173,7 +220,7 @@ export default function Settings() {
               <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">当前数据库路径</h3>
               <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">SQLite 数据库文件，存储所有应用数据</p>
             </div>
-            
+
             <div className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-4">
               <code className="text-sm text-slate-700 dark:text-slate-300 break-all">
                 {dataPath || '加载中...'}
@@ -185,10 +232,33 @@ export default function Settings() {
               className="w-full py-3 bg-white dark:bg-slate-800 backdrop-blur-md border border-slate-300 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-slate-600 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <FolderOpen className="w-4 h-4" />
-              选择数据库文件
+              选择数据库存储文件夹
             </button>
 
-            {pathSaved && (
+            {pathSaved && migrationResult && (
+              <div className="bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-500/30 rounded-xl p-4">
+                <p className="text-green-700 dark:text-green-300 font-medium mb-2">
+                  数据库已成功迁移到新位置
+                </p>
+                <p className="text-green-600 dark:text-green-400 text-sm mb-2">
+                  请重启应用以使更改生效
+                </p>
+                <div className="text-sm text-green-600 dark:text-green-400">
+                  <p>已迁移记录：</p>
+                  <ul className="list-disc list-inside mt-1 space-y-1">
+                    <li>笔记: {migrationResult.notes} 条</li>
+                    <li>待办事项: {migrationResult.todos} 条</li>
+                    <li>新闻分类: {migrationResult.news_categories} 条</li>
+                    <li>新闻源: {migrationResult.news_sources} 条</li>
+                    <li>新闻条目: {migrationResult.news_items} 条</li>
+                    <li>收藏: {migrationResult.favorites} 条</li>
+                    <li>设置: {migrationResult.settings} 条</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {pathSaved && !migrationResult && (
               <div className="bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-500/30 rounded-xl p-4 text-center">
                 <p className="text-green-700 dark:text-green-300">
                   数据库路径已成功更新
@@ -210,9 +280,10 @@ export default function Settings() {
                 <div className="text-sm text-blue-700 dark:text-blue-300">
                   <p className="font-medium mb-1">注意事项：</p>
                   <ul className="list-disc list-inside space-y-1">
-                    <li>选择现有的 SQLite 数据库文件（.db, .sqlite, .sqlite3）</li>
-                    <li>更换数据库文件后，将使用新文件中的数据</li>
-                    <li>确保选择的数据库文件是有效的 SQLite 格式</li>
+                    <li>选择一个文件夹作为数据库存储位置</li>
+                    <li>系统会在该文件夹中自动创建 moyu.db 数据库文件</li>
+                    <li>更换位置后，现有数据会自动迁移到新位置</li>
+                    <li>迁移完成后需要重启应用才能生效</li>
                     <li>建议定期备份数据库文件以防数据丢失</li>
                   </ul>
                 </div>
@@ -220,6 +291,117 @@ export default function Settings() {
             </div>
           </div>
         </Card3D>
+      </div>
+
+      {/* 代理设置 */}
+      <div className="space-y-4">
+        <div className="text-center mb-4">
+          <h2 className="text-3xl font-bold font-heading mb-2 dark:text-white text-slate-900">
+            代理设置
+          </h2>
+          <p className="text-slate-400 dark:text-slate-400 text-slate-600">配置网络代理，用于访问 RSS 源</p>
+        </div>
+
+        <Card3D className="p-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">HTTP/HTTPS 代理</h3>
+              <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">用于访问需要代理的 RSS 源</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="proxy-enabled"
+                checked={proxyEnabled}
+                onChange={(e) => setProxyEnabled(e.target.checked)}
+                className="w-5 h-5 rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <label htmlFor="proxy-enabled" className="text-slate-700 dark:text-slate-300 cursor-pointer">
+                启用代理
+              </label>
+            </div>
+
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={proxyUrl}
+                onChange={(e) => setProxyUrl(e.target.value)}
+                placeholder="http://127.0.0.1:7890"
+                disabled={!proxyEnabled}
+                className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 placeholder-slate-400 dark:placeholder-slate-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              />
+              <button
+                onClick={handleTestProxy}
+                disabled={!proxyEnabled || proxyTesting}
+                className="px-6 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-slate-600 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {proxyTesting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    测试中...
+                  </>
+                ) : (
+                  '测试'
+                )}
+              </button>
+            </div>
+
+            {proxyTestResult && (
+              <div className={`flex items-center gap-2 p-4 rounded-xl ${
+                proxyTestResult.success
+                  ? 'bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-500/30'
+                  : 'bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-500/30'
+              }`}>
+                {proxyTestResult.success ? (
+                  <>
+                    <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-300">
+                      {proxyTestResult.message}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <X className="w-5 h-5 text-red-600 dark:text-red-400" />
+                    <span className="text-red-700 dark:text-red-300">
+                      {proxyTestResult.error}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-500/20 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-700 dark:text-blue-300">
+                  <p className="font-medium mb-1">注意事项：</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>代理格式：http://host:port 或 https://host:port</li>
+                    <li>代理仅用于访问 RSS 源，不影响其他网络请求</li>
+                    <li>如果 RSS 源无法访问，可以尝试启用代理</li>
+                    <li>建议使用可靠的代理服务以确保稳定性</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card3D>
+
+        <button
+          onClick={handleSaveProxy}
+          disabled={saved}
+          className={`w-full py-3 backdrop-blur-md border rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+            saved ? 'cursor-not-allowed' : 'cursor-pointer'
+          } ${
+            saved
+              ? 'bg-green-500 text-white border-green-500'
+              : 'bg-blue-600 hover:bg-blue-700 border-blue-600 dark:bg-primary/80 dark:hover:bg-primary dark:border-primary/50 text-white'
+          }`}
+        >
+          <Save className="w-4 h-4" />
+          {saved ? '已保存' : '保存代理设置'}
+        </button>
       </div>
     </div>
   )
