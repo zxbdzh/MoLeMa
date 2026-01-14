@@ -101,8 +101,8 @@ export default function News() {
                   onClick={() => setSelectedCategory(category.id)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
                     selectedCategory === category.id
-                      ? 'bg-blue-600 dark:text-white text-slate-900'
-                      : 'bg-slate-800/40 dark:bg-slate-800/40 bg-white/40 text-slate-300 dark:text-slate-300 text-slate-700 hover:bg-slate-700/50 dark:hover:bg-slate-700/50 hover:bg-slate-200/50'
+                      ? 'bg-blue-600 text-white dark:text-white'
+                      : 'bg-slate-800/40 dark:bg-slate-800/40 bg-white/40 text-slate-700 dark:text-slate-300 hover:bg-slate-700/50 dark:hover:bg-slate-700/50 hover:bg-slate-200/50'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -114,7 +114,7 @@ export default function News() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="ml-auto flex items-center gap-2 px-4 py-2 bg-slate-800/40 dark:bg-slate-800/40 bg-white/40 text-slate-300 dark:text-slate-300 text-slate-700 rounded-lg hover:bg-slate-700/50 dark:hover:bg-slate-700/50 hover:bg-slate-200/50 transition-colors disabled:opacity-50"
+            className="ml-auto flex items-center gap-2 px-4 py-2 bg-slate-800/40 dark:bg-slate-800/40 bg-white/40 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-700/50 dark:hover:bg-slate-700/50 hover:bg-slate-200/50 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             刷新

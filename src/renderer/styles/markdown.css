@@ -1,23 +1,23 @@
 /* Markdown 预览样式 - 优化版 */
 
-/* CSS 变量定义 - 主题系统 */
+/* CSS 变量定义 - 深色模式（默认） */
 .markdown-preview {
-  --text-primary: #e5e5e5;
-  --text-secondary: #a1a1aa;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
   --code-bg: #1e1e1e;
-  --code-text: #d4d4d4;
-  --border-color: #3f3f46;
-  --bg-hover: #27272a;
+  --code-text: #e2e8f0;
+  --border-color: #475569;
+  --bg-hover: #334155;
   --link-color: #60a5fa;
   --link-hover: #93c5fd;
-  --quote-bg: #27272a;
-  --quote-border: #6b7280;
-  --table-header-bg: #27272a;
-  --table-border: #3f3f46;
+  --quote-bg: #1e293b;
+  --quote-border: #64748b;
+  --table-header-bg: #1e293b;
+  --table-border: #475569;
 }
 
 /* 浅色模式变量覆盖 */
-:not(.dark) .markdown-preview {
+html:not(.dark) .markdown-preview {
   --text-primary: #1e293b;
   --text-secondary: #64748b;
   --code-bg: #f1f5f9;
@@ -33,14 +33,13 @@
 }
 
 .markdown-preview {
-  @apply prose prose-slate prose-invert max-w-none;
-  @apply text-gray-200;
+  @apply prose prose-slate max-w-none;
   line-height: 1.7;
   color: var(--text-primary);
 }
 
 /* 浅色模式文本颜色 */
-:not(.dark) .markdown-preview {
+html:not(.dark) .markdown-preview {
   @apply text-slate-800;
 }
 
@@ -51,11 +50,11 @@
   padding-bottom: 0.5rem;
 }
 
-:not(.dark) .markdown-preview h1 {
+html:not(.dark) .markdown-preview h1 {
   @apply text-slate-900;
 }
 
-.dark .markdown-preview h1 {
+html.dark .markdown-preview h1 {
   @apply text-white;
 }
 
@@ -65,11 +64,11 @@
   padding-bottom: 0.25rem;
 }
 
-:not(.dark) .markdown-preview h2 {
+html:not(.dark) .markdown-preview h2 {
   @apply text-slate-800;
 }
 
-.dark .markdown-preview h2 {
+html.dark .markdown-preview h2 {
   @apply text-white;
 }
 
@@ -77,11 +76,11 @@
   @apply text-2xl font-bold mt-5 mb-2;
 }
 
-:not(.dark) .markdown-preview h3 {
+html:not(.dark) .markdown-preview h3 {
   @apply text-slate-800;
 }
 
-.dark .markdown-preview h3 {
+html.dark .markdown-preview h3 {
   @apply text-gray-100;
 }
 
@@ -89,11 +88,11 @@
   @apply text-xl font-bold mt-4 mb-2;
 }
 
-:not(.dark) .markdown-preview h4 {
+html:not(.dark) .markdown-preview h4 {
   @apply text-slate-800;
 }
 
-.dark .markdown-preview h4 {
+html.dark .markdown-preview h4 {
   @apply text-gray-200;
 }
 
@@ -101,11 +100,11 @@
   @apply text-lg font-bold mt-3 mb-1;
 }
 
-:not(.dark) .markdown-preview h5 {
+html:not(.dark) .markdown-preview h5 {
   @apply text-slate-700;
 }
 
-.dark .markdown-preview h5 {
+html.dark .markdown-preview h5 {
   @apply text-gray-300;
 }
 
@@ -113,11 +112,11 @@
   @apply text-base font-bold mt-2 mb-1;
 }
 
-:not(.dark) .markdown-preview h6 {
+html:not(.dark) .markdown-preview h6 {
   @apply text-slate-600;
 }
 
-.dark .markdown-preview h6 {
+html.dark .markdown-preview h6 {
   @apply text-gray-400;
 }
 
@@ -180,7 +179,7 @@
 .markdown-preview pre code {
   @apply bg-transparent p-0 border-0;
   background-color: transparent;
-  color: var(--code-text);
+  color: inherit;
 }
 
 /* 链接样式 */
@@ -190,11 +189,11 @@
   transition: color 0.2s ease;
 }
 
-:not(.dark) .markdown-preview a {
+html:not(.dark) .markdown-preview a {
   @apply text-blue-600 hover:text-blue-700;
 }
 
-.dark .markdown-preview a {
+html.dark .markdown-preview a {
   @apply text-blue-400 hover:text-blue-300;
 }
 
@@ -209,11 +208,11 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
 }
 
-:not(.dark) .markdown-preview img {
+html:not(.dark) .markdown-preview img {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-.dark .markdown-preview img {
+html.dark .markdown-preview img {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
 }
 
@@ -253,56 +252,109 @@
 }
 
 /* 代码语法高亮样式优化 */
-.markdown-preview .token.comment,
-.markdown-preview .token.prolog,
-.markdown-preview .token.doctype,
-.markdown-preview .token.cdata {
-  @apply text-gray-500;
+html:not(.dark) .markdown-preview .token.comment,
+html:not(.dark) .markdown-preview .token.prolog,
+html:not(.dark) .markdown-preview .token.doctype,
+html:not(.dark) .markdown-preview .token.cdata {
+  @apply text-slate-500;
 }
 
-.markdown-preview .token.punctuation {
-  @apply text-gray-400;
+html:not(.dark) .markdown-preview .token.punctuation {
+  @apply text-slate-400;
 }
 
-.markdown-preview .token.property,
-.markdown-preview .token.tag,
-.markdown-preview .token.boolean,
-.markdown-preview .token.number,
-.markdown-preview .token.constant,
-.markdown-preview .token.symbol,
-.markdown-preview .token.deleted {
+html:not(.dark) .markdown-preview .token.property,
+html:not(.dark) .markdown-preview .token.tag,
+html:not(.dark) .markdown-preview .token.boolean,
+html:not(.dark) .markdown-preview .token.number,
+html:not(.dark) .markdown-preview .token.constant,
+html:not(.dark) .markdown-preview .token.symbol,
+html:not(.dark) .markdown-preview .token.deleted {
+  @apply text-purple-600;
+}
+
+html:not(.dark) .markdown-preview .token.selector,
+html:not(.dark) .markdown-preview .token.attr-name,
+html:not(.dark) .markdown-preview .token.string,
+html:not(.dark) .markdown-preview .token.char,
+html:not(.dark) .markdown-preview .token.builtin,
+html:not(.dark) .markdown-preview .token.inserted {
+  @apply text-green-600;
+}
+
+html:not(.dark) .markdown-preview .token.operator,
+html:not(.dark) .markdown-preview .token.entity,
+html:not(.dark) .markdown-preview .token.url,
+html:not(.dark) .markdown-preview .token.variable {
+  @apply text-yellow-600;
+}
+
+html:not(.dark) .markdown-preview .token.atrule,
+html:not(.dark) .markdown-preview .token.attr-value,
+html:not(.dark) .markdown-preview .token.function,
+html:not(.dark) .markdown-preview .token.class-name {
+  @apply text-blue-600;
+}
+
+html:not(.dark) .markdown-preview .token.keyword {
+  @apply text-pink-600;
+}
+
+html:not(.dark) .markdown-preview .token.regex,
+html:not(.dark) .markdown-preview .token.important {
+  @apply text-orange-600;
+}
+
+html.dark .markdown-preview .token.comment,
+html.dark .markdown-preview .token.prolog,
+html.dark .markdown-preview .token.doctype,
+html.dark .markdown-preview .token.cdata {
+  @apply text-slate-500;
+}
+
+html.dark .markdown-preview .token.punctuation {
+  @apply text-slate-400;
+}
+
+html.dark .markdown-preview .token.property,
+html.dark .markdown-preview .token.tag,
+html.dark .markdown-preview .token.boolean,
+html.dark .markdown-preview .token.number,
+html.dark .markdown-preview .token.constant,
+html.dark .markdown-preview .token.symbol,
+html.dark .markdown-preview .token.deleted {
   @apply text-purple-400;
 }
 
-.markdown-preview .token.selector,
-.markdown-preview .token.attr-name,
-.markdown-preview .token.string,
-.markdown-preview .token.char,
-.markdown-preview .token.builtin,
-.markdown-preview .token.inserted {
+html.dark .markdown-preview .token.selector,
+html.dark .markdown-preview .token.attr-name,
+html.dark .markdown-preview .token.string,
+html.dark .markdown-preview .token.char,
+html.dark .markdown-preview .token.builtin,
+html.dark .markdown-preview .token.inserted {
   @apply text-green-400;
 }
 
-.markdown-preview .token.operator,
-.markdown-preview .token.entity,
-.markdown-preview .token.url,
-.markdown-preview .token.variable {
+html.dark .markdown-preview .token.operator,
+html.dark .markdown-preview .token.entity,
+html.dark .markdown-preview .token.url,
+html.dark .markdown-preview .token.variable {
   @apply text-yellow-400;
 }
 
-.markdown-preview .token.atrule,
-.markdown-preview .token.attr-value,
-.markdown-preview .token.function,
-.markdown-preview .token.class-name {
+html.dark .markdown-preview .token.atrule,
+html.dark .markdown-preview .token.attr-value,
+html.dark .markdown-preview .token.function,
+html.dark .markdown-preview .token.class-name {
   @apply text-blue-400;
 }
 
-.markdown-preview .token.keyword {
+html.dark .markdown-preview .token.keyword {
   @apply text-pink-400;
 }
 
-.markdown-preview .token.regex,
-.markdown-preview .token.important {
+html.dark .markdown-preview .token.regex,
+html.dark .markdown-preview .token.important {
   @apply text-orange-400;
 }
 
@@ -317,11 +369,11 @@
   @apply font-bold;
 }
 
-:not(.dark) .markdown-preview strong {
+html:not(.dark) .markdown-preview strong {
   @apply text-slate-900;
 }
 
-.dark .markdown-preview strong {
+html.dark .markdown-preview strong {
   @apply text-white;
 }
 
@@ -329,11 +381,11 @@
   @apply italic;
 }
 
-:not(.dark) .markdown-preview em {
+html:not(.dark) .markdown-preview em {
   @apply text-slate-600;
 }
 
-.dark .markdown-preview em {
+html.dark .markdown-preview em {
   @apply text-gray-300;
 }
 

@@ -327,7 +327,7 @@ export default function Notes() {
                 {showPreview && (
                     <div className="flex flex-col min-h-[400px] bg-slate-100 dark:bg-slate-800/30 border border-slate-300 dark:border-slate-700/50 rounded-lg overflow-hidden">
                     {/* 固定的标题栏 */}
-                      <div className="sticky top-0 bg-slate-200 dark:bg-slate-900/50 backdrop-blur-sm border-b border-slate-300 dark:border-slate-700/50 p-4 z-10">
+                      <div className="sticky top-0 bg-slate-200 dark:bg-slate-800/50 backdrop-blur-sm border-b border-slate-300 dark:border-slate-700/50 p-4 z-10">
                       <h3 className="text-lg font-bold dark:text-white text-slate-900">
                         {selectedNote.title}
                       </h3>

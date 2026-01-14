@@ -27,11 +27,11 @@ export default function AnimatedButton({
   ripple = true
 }: AnimatedButtonProps) {
   const variants = {
-    primary: 'bg-purple-500 hover:bg-purple-600 text-white',
-    secondary: 'bg-white/10 hover:bg-white/20 text-white border border-white/20',
-    success: 'bg-green-500 hover:bg-green-600 text-white',
-    danger: 'bg-red-500 hover:bg-red-600 text-white',
-    gradient: 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white'
+    primary: 'bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white',
+    secondary: 'bg-slate-200 hover:bg-slate-300 text-slate-900 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white border border-slate-300 dark:border-white/20',
+    success: 'bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white',
+    danger: 'bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white',
+    gradient: 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 dark:from-purple-500 dark:to-pink-500 dark:hover:from-purple-600 dark:hover:to-pink-600 text-white'
   }
 
   const sizes = {
@@ -100,7 +100,7 @@ export function GlowButton({ children, onClick, className = '' }: { children: Re
       onClick={onClick}
       className={`
         relative px-6 py-3
-        bg-gradient-to-r from-purple-500 to-pink-500
+        bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-500 dark:to-pink-500
         text-white font-medium rounded-lg
         transition-all duration-300
         ${className}
@@ -131,7 +131,7 @@ export function Button3D({ children, onClick, className = '' }: { children: Reac
       onClick={onClick}
       className={`
         relative px-6 py-3
-        bg-gradient-to-b from-purple-500 to-purple-600
+        bg-gradient-to-b from-purple-600 to-purple-700 dark:from-purple-500 dark:to-purple-600
         text-white font-medium rounded-lg
         shadow-[0_4px_0_0_rgba(126,58,242,1)]
         active:shadow-[0_2px_0_0_rgba(126,58,242,1)]
@@ -155,8 +155,8 @@ export function NeonButton({ children, onClick, className = '' }: { children: Re
       className={`
         relative px-6 py-3
         bg-transparent
-        text-purple-400 font-medium rounded-lg
-        border-2 border-purple-500
+        text-purple-600 dark:text-purple-400 font-medium rounded-lg
+        border-2 border-purple-600 dark:border-purple-500
         transition-all duration-300
         hover:bg-purple-500/10
         hover:shadow-[0_0_20px_rgba(147,51,234,0.5)]
@@ -188,8 +188,8 @@ export function GradientBorderButton({ children, onClick, className = '' }: { ch
       onClick={onClick}
       className={`
         relative px-6 py-3
-        bg-white/5 backdrop-blur-sm
-        text-white font-medium rounded-lg
+        bg-slate-100 dark:bg-white/5 backdrop-blur-sm
+        text-slate-900 dark:text-white font-medium rounded-lg
         transition-all duration-300
         ${className}
       `}
@@ -205,7 +205,7 @@ export function GradientBorderButton({ children, onClick, className = '' }: { ch
           backgroundSize: '300% 300%'
         }}
       >
-        <div className="absolute inset-[2px] bg-white/5 rounded-lg" />
+        <div className="absolute inset-[2px] bg-slate-100 dark:bg-white/5 rounded-lg" />
       </motion.div>
       <span className="relative z-10">{children}</span>
     </motion.button>

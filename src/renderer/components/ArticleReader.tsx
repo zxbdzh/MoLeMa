@@ -109,9 +109,9 @@ export default function ArticleReader({ onClose }: ArticleReaderProps) {
                 whileTap={{ scale: 0.9 }}
                 onClick={() => currentArticle && toggleFavorite(currentArticle)}
                 className={`p-2 rounded-lg transition-colors ${
-                  isFavorite(currentArticle) 
-                    ? 'text-yellow-400 hover:bg-yellow-500/20' 
-                    : 'text-gray-400 dark:text-gray-400 text-slate-600 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-slate-200'
+                  isFavorite(currentArticle)
+                    ? 'text-yellow-400 hover:bg-yellow-500/20'
+                    : 'text-slate-600 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-gray-300'
                 }`}
                 title={isFavorite(currentArticle) ? '取消收藏' : '收藏'}
               >
@@ -185,7 +185,7 @@ export default function ArticleReader({ onClose }: ArticleReaderProps) {
                     rel="noopener noreferrer"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 rounded-xl font-medium transition-all"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 rounded-xl font-medium text-white dark:text-white transition-all"
                   >
                     <ExternalLink className="w-4 h-4" />
                     查看原文

@@ -82,7 +82,7 @@ export default function TodoList() {
         />
         <button
           type="submit"
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-medium dark:text-white text-slate-900 flex items-center gap-2 transition-colors cursor-pointer"
+          className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-medium text-white dark:text-white flex items-center gap-2 transition-colors cursor-pointer"
         >
           <Plus className="w-5 h-5" />
           添加

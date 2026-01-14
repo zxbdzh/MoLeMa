@@ -81,8 +81,8 @@ export default function RSSPage() {
               onClick={() => setViewMode('feeds')}
               className={`px-4 py-2 rounded-lg font-medium transition-all cursor-pointer ${
                 viewMode === 'feeds'
-                  ? 'bg-primary dark:text-white text-slate-900'
-                  : 'bg-transparent dark:bg-slate-800 text-slate-400 dark:text-slate-400 text-slate-700 hover:text-white dark:hover:text-slate-900 hover:bg-white/50 dark:hover:bg-slate-700'
+                  ? 'font-bold text-slate-900 dark:text-white'
+                  : 'text-slate-600 dark:text-slate-400'
               }`}
             >
               订阅源
@@ -91,8 +91,8 @@ export default function RSSPage() {
               onClick={() => setViewMode('favorites')}
               className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 cursor-pointer ${
                 viewMode === 'favorites'
-                  ? 'bg-primary dark:text-white text-slate-900'
-                  : 'bg-transparent dark:bg-slate-800 text-slate-400 dark:text-slate-400 text-slate-700 hover:text-white dark:hover:text-slate-900 hover:bg-white/50 dark:hover:bg-slate-700'
+                  ? 'font-bold text-slate-900 dark:text-white'
+                  : 'text-slate-600 dark:text-slate-400'
               }`}
             >
               <Star className="w-4 h-4" />
@@ -141,7 +141,7 @@ export default function RSSPage() {
           <button
             onClick={handleAddFeed}
             disabled={isLoading}
-            className="px-6 py-2 bg-primary hover:bg-primary/90 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
+            className="px-6 py-2 bg-primary hover:bg-primary/90 rounded-lg font-medium text-white dark:text-white flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             添加
@@ -193,7 +193,7 @@ export default function RSSPage() {
                           }}
                           className="p-1.5 hover:bg-slate-800/50 dark:hover:bg-slate-800/50 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
                         >
-                          <RefreshCw className="w-4 h-4 text-slate-400 dark:text-slate-400 text-slate-600" />
+                          <RefreshCw className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                         </button>
                         <button
                           onClick={(e) => {
@@ -202,7 +202,7 @@ export default function RSSPage() {
                           }}
                           className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors cursor-pointer"
                         >
-                          <Trash2 className="w-4 h-4 text-slate-400 dark:text-slate-400 text-slate-600 hover:text-red-400" />
+                          <Trash2 className="w-4 h-4 text-slate-600 dark:text-slate-400 hover:text-red-400" />
                         </button>
                       </div>
                     </div>
@@ -301,7 +301,7 @@ export default function RSSPage() {
                           e.stopPropagation()
                           toggleFavorite(item)
                         }}
-                        className="flex items-center gap-1 text-yellow-400 hover:text-yellow-300 cursor-pointer"
+                        className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 cursor-pointer"
                     >
                       <Star className="w-3 h-3 fill-current" />
                       取消收藏

@@ -39,7 +39,7 @@ function App() {
   // 应用主题
   useEffect(() => {
     const root = document.documentElement
-    const isDark = theme === 'system' 
+    const isDark = theme === 'system'
       ? window.matchMedia('(prefers-color-scheme: dark)').matches
       : theme === 'dark'
 
@@ -49,6 +49,33 @@ function App() {
     } else {
       root.classList.remove('dark')
       root.classList.add('light')
+    }
+  }, [theme])
+
+  // 监听系统主题变化
+  useEffect(() => {
+    if (theme !== 'system') return
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = () => {
+      const root = document.documentElement
+      const isDark = mediaQuery.matches
+
+      if (isDark) {
+        root.classList.add('dark')
+        root.classList.remove('light')
+      } else {
+        root.classList.remove('dark')
+        root.classList.add('light')
+      }
+    }
+
+    // 添加监听器
+    mediaQuery.addEventListener('change', handleChange)
+
+    // 清理监听器
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange)
     }
   }, [theme])
 
@@ -185,7 +212,7 @@ function App() {
               {activeTab === tab.id && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"
+                  className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 rounded-full"
                   initial={false}
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 />
@@ -196,8 +223,8 @@ function App() {
 
         {/* 底部操作区域 - 固定位置 */}
         <div className="p-2 border-t border-slate-800 dark:border-slate-800 border-slate-200 space-y-2">
-          {/* 主题切换 - 始终显示图标，展开时显示文字 */}
-          <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+          {/* 主题切换 - 始终显示图标，展开时显示文字，收缩时hover显示文字 */}
+          <div className="group flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
             <button
               onClick={() => handleThemeChange('light')}
               className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors cursor-pointer text-sm ${
@@ -206,19 +233,9 @@ function App() {
               title="浅色"
             >
               <Sun className="w-4 h-4 flex-shrink-0" />
-              <AnimatePresence mode="wait">
-                {!sidebarCollapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 'auto' }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="whitespace-nowrap overflow-hidden"
-                  >
-                    浅色
-                  </motion.span>
-                )}
-              </AnimatePresence>
+              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block' : ''}`}>
+                浅色
+              </span>
             </button>
             <button
               onClick={() => handleThemeChange('dark')}
@@ -228,19 +245,9 @@ function App() {
               title="深色"
             >
               <Moon className="w-4 h-4 flex-shrink-0" />
-              <AnimatePresence mode="wait">
-                {!sidebarCollapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 'auto' }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="whitespace-nowrap overflow-hidden"
-                  >
-                    深色
-                  </motion.span>
-                )}
-              </AnimatePresence>
+              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block' : ''}`}>
+                深色
+              </span>
             </button>
             <button
               onClick={() => handleThemeChange('system')}
@@ -250,24 +257,14 @@ function App() {
               title="跟随系统"
             >
               <Monitor className="w-4 h-4 flex-shrink-0" />
-              <AnimatePresence mode="wait">
-                {!sidebarCollapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 'auto' }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="whitespace-nowrap overflow-hidden"
-                  >
-                    跟随
-                  </motion.span>
-                )}
-              </AnimatePresence>
+              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block' : ''}`}>
+                跟随
+              </span>
             </button>
           </div>
 
           {/* 窗口控制按钮 */}
-          <div className="flex items-center justify-center gap-1">
+          <div className="group flex items-center justify-center gap-1">
             <button
               onClick={async () => {
                 await window.electronAPI?.fullscreenWindow?.()
@@ -278,6 +275,9 @@ function App() {
               title={isFullscreen ? "退出全屏" : "全屏"}
             >
               {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block ml-2' : 'hidden'}`}>
+                {isFullscreen ? "退出全屏" : "全屏"}
+              </span>
             </button>
             <button
               onClick={() => window.electronAPI?.minimizeWindow?.()}
@@ -287,6 +287,9 @@ function App() {
               <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
                 <rect x="2" y="5" width="8" height="2" rx="0.5" fill="currentColor" />
               </svg>
+              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block ml-2' : 'hidden'}`}>
+                最小化
+              </span>
             </button>
             <button
               onClick={() => window.electronAPI?.closeWindow?.()}
@@ -294,6 +297,9 @@ function App() {
               title="关闭"
             >
               <X className="w-3.5 h-3.5" />
+              <span className={`whitespace-nowrap overflow-hidden ${sidebarCollapsed ? 'hidden group-hover:inline-block ml-2' : 'hidden'}`}>
+                关闭
+              </span>
             </button>
           </div>
         </div>
