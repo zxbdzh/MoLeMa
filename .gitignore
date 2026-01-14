@@ -4,3 +4,6 @@ dist/
 dist-electron/
 .DS_Store
 *.log
+.trae
+todo.md
+.iflow
