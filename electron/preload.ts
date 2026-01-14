@@ -146,7 +146,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     delete: (id: number) => ipcRenderer.invoke('webPages:delete', id),
     toggleFavorite: (id: number) => ipcRenderer.invoke('webPages:toggleFavorite', id),
     getFavorites: () => ipcRenderer.invoke('webPages:getFavorites'),
-    test: (url: string) => ipcRenderer.invoke('webPages:test', url)
+    test: (url: string) => ipcRenderer.invoke('webPages:test', url),
+    categories: {
+      getAll: () => ipcRenderer.invoke('webPagesCategories:getAll'),
+      getById: (id: number) => ipcRenderer.invoke('webPagesCategories:getById', id),
+      create: (category: any) => ipcRenderer.invoke('webPagesCategories:create', category),
+      update: (id: number, category: any) => ipcRenderer.invoke('webPagesCategories:update', id, category),
+      delete: (id: number) => ipcRenderer.invoke('webPagesCategories:delete', id),
+      getWebPageCount: (categoryId: number) => ipcRenderer.invoke('webPagesCategories:getWebPageCount', categoryId)
+    }
   },
 
   // 平台信息

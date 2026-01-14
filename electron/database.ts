@@ -80,7 +80,7 @@ function initializeSchema(database: Database.Database): void {
     console.log('Database schema already exists, checking for missing tables and columns...');
     
     // 检查是否所有必要的表都存在
-    const tablesToCheck = ['todos', 'web_pages'];
+    const tablesToCheck = ['todos', 'web_pages', 'web_page_categories'];
     for (const tableName of tablesToCheck) {
       const tableExists = database.prepare(`
         SELECT name FROM sqlite_master 
@@ -126,6 +126,13 @@ function initializeSchema(database: Database.Database): void {
       console.log('Adding is_active column to web_pages table...');
       database.exec('ALTER TABLE web_pages ADD COLUMN is_active INTEGER DEFAULT 1');
       console.log('is_active column added successfully');
+    }
+    
+    // 如果web_pages表缺少favicon列，添加该列
+    if (!webPagesColumnNames.includes('favicon')) {
+      console.log('Adding favicon column to web_pages table...');
+      database.exec('ALTER TABLE web_pages ADD COLUMN favicon TEXT');
+      console.log('favicon column added successfully');
     }
   }
 }
@@ -229,6 +236,18 @@ function getSchemaSQL(): string {
 
     CREATE INDEX IF NOT EXISTS idx_favorites_created_at ON favorites(created_at DESC);
 
+    -- 网页分类表（独立于新闻分类）
+    CREATE TABLE IF NOT EXISTS web_page_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      icon TEXT,
+      color TEXT,
+      sort_order INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_web_page_categories_sort ON web_page_categories(sort_order);
+
     -- 登录页面信息表
     CREATE TABLE IF NOT EXISTS web_pages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -241,7 +260,7 @@ function getSchemaSQL(): string {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       view_count INTEGER DEFAULT 0,
-      FOREIGN KEY (category_id) REFERENCES news_categories(id) ON DELETE SET NULL
+      FOREIGN KEY (category_id) REFERENCES web_page_categories(id) ON DELETE SET NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_web_pages_category ON web_pages(category_id);
@@ -262,19 +281,19 @@ function getSchemaSQL(): string {
  * 插入默认数据
  */
 export function seedDefaultData(database: Database.Database): void {
-  // 检查是否已有分类数据
-  const categoryCount = database.prepare('SELECT COUNT(*) as count FROM news_categories').get() as { count: number };
+  // 检查新闻分类是否已有数据
+  const newsCategoryCount = database.prepare('SELECT COUNT(*) as count FROM news_categories').get() as { count: number };
 
-  if (categoryCount.count === 0) {
-    console.log('Seeding default data...');
+  if (newsCategoryCount.count === 0) {
+    console.log('Seeding default news categories...');
 
-    // 插入默认分类
-    const insertCategory = database.prepare(`
+    // 插入默认新闻分类
+    const insertNewsCategory = database.prepare(`
       INSERT INTO news_categories (name, icon, color, sort_order, created_at)
       VALUES (?, ?, ?, ?, ?)
     `);
 
-    const defaultCategories = [
+    const defaultNewsCategories = [
       { name: '科技', icon: 'cpu', color: '#3B82F6', sort: 1 },
       { name: '财经', icon: 'dollar', color: '#10B981', sort: 2 },
       { name: '娱乐', icon: 'film', color: '#F59E0B', sort: 3 },
@@ -282,11 +301,38 @@ export function seedDefaultData(database: Database.Database): void {
       { name: '国际', icon: 'globe', color: '#8B5CF6', sort: 5 }
     ];
 
-    for (const cat of defaultCategories) {
-      insertCategory.run(cat.name, cat.icon, cat.color, cat.sort, Date.now());
+    for (const cat of defaultNewsCategories) {
+      insertNewsCategory.run(cat.name, cat.icon, cat.color, cat.sort, Date.now());
     }
 
-    console.log('Default categories seeded');
+    console.log('Default news categories seeded');
+  }
+
+  // 检查网页分类是否已有数据
+  const webPageCategoryCount = database.prepare('SELECT COUNT(*) as count FROM web_page_categories').get() as { count: number };
+
+  if (webPageCategoryCount.count === 0) {
+    console.log('Seeding default web page categories...');
+
+    // 插入默认网页分类
+    const insertWebPageCategory = database.prepare(`
+      INSERT INTO web_page_categories (name, icon, color, sort_order, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const defaultWebPageCategories = [
+      { name: '工作', icon: 'briefcase', color: '#3B82F6', sort: 1 },
+      { name: '学习', icon: 'book', color: '#10B981', sort: 2 },
+      { name: '工具', icon: 'wrench', color: '#F59E0B', sort: 3 },
+      { name: '娱乐', icon: 'gamepad', color: '#EF4444', sort: 4 },
+      { name: '其他', icon: 'folder', color: '#8B5CF6', sort: 5 }
+    ];
+
+    for (const cat of defaultWebPageCategories) {
+      insertWebPageCategory.run(cat.name, cat.icon, cat.color, cat.sort, Date.now());
+    }
+
+    console.log('Default web page categories seeded');
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ArrowLeft, ExternalLink, Loader2, AlertCircle, Star, StarOff, RotateCcw } from 'lucide-react'
@@ -6,21 +6,24 @@ import { X, ArrowLeft, ExternalLink, Loader2, AlertCircle, Star, StarOff, Rotate
 interface WebPageBrowserProps {
   url: string;
   title: string;
-  description?: string;
   onClose: () => void;
-  onFavoriteToggle?: (url: string) => void;
+  onFavoriteToggle?: (url: string, favicon?: string) => void;
+  onFaviconSave?: (favicon: string) => void;
   isFavorite?: boolean;
 }
 
-export default function WebPageBrowser({ url, title, description, onClose, onFavoriteToggle, isFavorite }: WebPageBrowserProps) {
+export default function WebPageBrowser({ url, title, onClose, onFavoriteToggle, onFaviconSave, isFavorite }: WebPageBrowserProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const webviewRef = useRef<HTMLWebViewElement>(null);
-  
+
   // 确保URL带有协议前缀
-  const normalizedUrl = url.startsWith('http://') || url.startsWith('https://') 
-    ? url 
+  const normalizedUrl = url.startsWith('http://') || url.startsWith('https://')
+    ? url
     : `https://${url}`;
+
+  // 保存 favicon URL
+  const faviconUrl = useRef<string | null>(null);
 
   useEffect(() => {
     // 锁定背景滚动
@@ -40,9 +43,51 @@ export default function WebPageBrowser({ url, title, description, onClose, onFav
       setError(null);
     }
 
-    // 处理webview加载结束
-    const handleDidStopLoading = () => {
+    // 处理webview DOM 准备就绪（优先使用，提前结束loading）
+    const handleDomReady = async () => {
       setLoading(false);
+      // 尝试获取网页 favicon
+      try {
+        const favicons = await webview.executeJavaScript(`
+          (function() {
+            const links = document.querySelectorAll('link[rel*="icon"]');
+            const icons = [];
+            links.forEach(link => {
+              const href = link.href;
+             
+              const sizes = link.getAttribute('sizes');
+              const type = link.getAttribute('type');
+              const rel = link.getAttribute('rel');
+              icons.push({ href, sizes, type, rel });
+            });
+            return icons;
+          })()
+        `) as any[];
+
+        if (favicons && favicons.length > 0) {
+          // 找到最佳 favicon（优先使用 apple-touch-icon，然后是 icon）
+          let bestIcon = favicons.find(f => f.rel && f.rel.includes('apple-touch-icon'));
+          if (!bestIcon) {
+            bestIcon = favicons.find(f => f.rel === 'icon');
+          }
+          if (!bestIcon) {
+            bestIcon = favicons[0];
+          }
+
+          // 保存 favicon URL
+          if (bestIcon && bestIcon.href) {
+            faviconUrl.current = bestIcon.href;
+            console.log('Found favicon:', bestIcon.href);
+
+            // 立即保存 favicon 到数据库
+            if (onFaviconSave) {
+              onFaviconSave(bestIcon.href);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to get favicon:', err);
+      }
     }
 
     // 处理webview加载失败
@@ -59,18 +104,18 @@ export default function WebPageBrowser({ url, title, description, onClose, onFav
 
     // 添加事件监听器
     webview.addEventListener('did-start-loading', handleDidStartLoading);
-    webview.addEventListener('did-stop-loading', handleDidStopLoading);
+    webview.addEventListener('dom-ready', handleDomReady);
     webview.addEventListener('did-fail-load', handleDidFailLoad);
     webview.addEventListener('new-window', handleNewWindow);
 
     // 清理函数中移除事件监听器
     return () => {
       webview.removeEventListener('did-start-loading', handleDidStartLoading);
-      webview.removeEventListener('did-stop-loading', handleDidStopLoading);
+      webview.removeEventListener('dom-ready', handleDomReady);
       webview.removeEventListener('did-fail-load', handleDidFailLoad);
       webview.removeEventListener('new-window', handleNewWindow);
     };
-  }, []);
+  }, [onFavoriteToggle]);
 
   const handleRefresh = () => {
     setLoading(true);
@@ -104,6 +149,16 @@ export default function WebPageBrowser({ url, title, description, onClose, onFav
             >
               <ArrowLeft className="w-5 h-5" />
             </motion.button>
+            {faviconUrl.current && (
+              <img
+                src={faviconUrl.current}
+                alt=""
+                className="w-6 h-6 rounded flex-shrink-0"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            )}
             <div className="max-w-xs md:max-w-md overflow-hidden text-ellipsis whitespace-nowrap">
               <span className="text-sm text-gray-400 dark:text-gray-400 text-slate-600">{title}</span>
             </div>
@@ -133,7 +188,7 @@ export default function WebPageBrowser({ url, title, description, onClose, onFav
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => onFavoriteToggle(url)}
+                onClick={() => onFavoriteToggle(url, faviconUrl.current || undefined)}
                 className={`p-2 rounded-lg transition-colors ${
                   isFavorite
                     ? 'text-yellow-400 hover:bg-yellow-500/20'
@@ -162,14 +217,14 @@ export default function WebPageBrowser({ url, title, description, onClose, onFav
               <p className="text-gray-400 dark:text-gray-400 text-slate-600">加载中...</p>
             </div>
           )}
-          
+
           {error && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-4 text-center">
               <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
               <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">加载失败</h3>
               <p className="text-gray-400 dark:text-gray-400 text-slate-600 mb-6">
-                {error === '页面加载失败' 
-                  ? '无法加载该网站，请尝试在新标签页中打开' 
+                {error === '页面加载失败'
+                  ? '无法加载该网站，请尝试在新标签页中打开'
                   : error}
               </p>
               <div className="flex gap-4">
@@ -190,7 +245,7 @@ export default function WebPageBrowser({ url, title, description, onClose, onFav
               </div>
             </div>
           )}
-          
+
           {/* 使用webview替代iframe */}
           <webview
             ref={webviewRef}

@@ -86,7 +86,7 @@ export default function Settings() {
       console.error('保存快捷键失败:', error)
     }
   }
-  
+
   const handleSelectDataPath = async () => {
     try {
       const result = await window.electronAPI?.dialog?.selectDirectory()
@@ -139,7 +139,7 @@ export default function Settings() {
       console.error('保存代理设置失败:', error)
     }
   }
-  
+
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
@@ -306,7 +306,7 @@ export default function Settings() {
           <div className="space-y-4">
             <div>
               <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">HTTP/HTTPS 代理</h3>
-              <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">用于访问需要代理的 RSS 源</p>
+              <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">用于访问需要代理的 RSS 源或网页</p>
             </div>
 
             <div className="flex items-center gap-3">
@@ -378,8 +378,7 @@ export default function Settings() {
                   <p className="font-medium mb-1">注意事项：</p>
                   <ul className="list-disc list-inside space-y-1">
                     <li>代理格式：http://host:port 或 https://host:port</li>
-                    <li>代理仅用于访问 RSS 源，不影响其他网络请求</li>
-                    <li>如果 RSS 源无法访问，可以尝试启用代理</li>
+                    <li>如果 RSS 源或网页无法访问，可以尝试启用代理</li>
                     <li>建议使用可靠的代理服务以确保稳定性</li>
                   </ul>
                 </div>

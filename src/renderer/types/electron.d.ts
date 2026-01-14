@@ -110,6 +110,24 @@ interface ElectronAPI {
     getDomesticNews: (category?: string) => Promise<any>
   }
 
+  // 网页收藏 API
+  webPages: {
+    getAll: () => Promise<{ success: boolean; webPages?: any[] }>
+    getById: (id: number) => Promise<{ success: boolean; webPage?: any }>
+    getByUrl: (url: string) => Promise<{ success: boolean; webPage?: any }>
+    create: (webPage: any) => Promise<{ success: boolean; id?: number }>
+    update: (id: number, webPage: any) => Promise<{ success: boolean }>
+    delete: (id: number) => Promise<{ success: boolean }>
+    categories: {
+      getAll: () => Promise<{ success: boolean; categories?: any[] }>
+      getById: (id: number) => Promise<{ success: boolean; category?: any }>
+      create: (category: any) => Promise<{ success: boolean; id?: number }>
+      update: (id: number, category: any) => Promise<{ success: boolean }>
+      delete: (id: number) => Promise<{ success: boolean; error?: string; webPageCount?: number }>
+      getWebPageCount: (id: number) => Promise<{ success: boolean; count?: number }>
+    }
+  }
+
   // 对话框
   dialog: {
     selectDirectory: () => Promise<{ success: boolean; path?: string; canceled?: boolean }>

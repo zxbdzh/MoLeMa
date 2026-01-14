@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, Tray, Menu, nativeImage, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, globalShortcut, Tray, Menu, nativeImage, ipcMain, dialog, session } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import Parser from 'rss-parser'
@@ -221,6 +221,25 @@ app.whenReady().then(() => {
   // 运行数据迁移（从 JSON 到 SQLite）
   runMigration()
   
+  // 创建专门用于 webview 的 session
+  const webviewSession = session.fromPartition('persist:webview')
+  
+  // 配置 webview 代理的函数
+  const setupWebviewProxy = () => {
+    const proxyConfig = getProxyConfig()
+    if (proxyConfig.enabled && proxyConfig.url) {
+      console.log('Setting webview proxy:', proxyConfig.url)
+      webviewSession.setProxy({
+        proxyRules: proxyConfig.url
+      })
+    } else {
+      webviewSession.setProxy({})
+    }
+  }
+  
+  // 初始化 webview 代理
+  setupWebviewProxy()
+  
   createWindow()
   createTray()
   registerGlobalShortcuts()
@@ -258,7 +277,7 @@ ipcMain.handle('rss:addFeed', async (_event, url: string) => {
       url: trimmedUrl,
       title: feed.title || 'Unknown Feed',
       description: feed.description || '',
-      items: feed.items.map((item) => ({
+      items: feed.items.map((item) =>({
         title: item.title || 'No Title',
         link: item.link || '',
         pubDate: item.pubDate || new Date().toISOString(),
@@ -302,7 +321,7 @@ ipcMain.handle('rss:refreshFeed', async (_event, url: string) => {
       url: trimmedUrl,
       title: feed.title || 'Unknown Feed',
       description: feed.description || '',
-      items: feed.items.map((item) => ({
+      items: feed.items.map((item) =>({
         title: item.title || 'No Title',
         link: item.link || '',
         pubDate: item.pubDate || new Date().toISOString(),
@@ -326,7 +345,7 @@ ipcMain.handle('rss:refreshFeed', async (_event, url: string) => {
 ipcMain.handle('rss:getFeeds', async () => {
   try {
     // 确保返回的feeds URL没有前后空格
-    const feeds = Object.values(getRSSFeeds()).map(feed => ({
+    const feeds = Object.values(getRSSFeeds()).map(feed =>({
       ...feed,
       url: feed.url.trim()
     }))
@@ -1282,6 +1301,17 @@ ipcMain.handle('proxy:get', () => {
 ipcMain.handle('proxy:set', async (_event, url: string | null) => {
   try {
     setProxy(url)
+    
+    // 同时更新 webview session 的代理
+    const webviewSession = session.fromPartition('persist:webview')
+    if (url) {
+      await webviewSession.setProxy({
+        proxyRules: url
+      })
+    } else {
+      await webviewSession.setProxy({})
+    }
+    
     return { success: true }
   } catch (error) {
     console.error('Failed to set proxy:', error)
@@ -1308,7 +1338,8 @@ ipcMain.handle('proxy:test', async (_event, url: string) => {
 
     return new Promise((resolve) => {
       const req = https.get(testUrl, options, (res: any) => {
-        // 恢复原代理设置        setProxy(originalProxy)
+        // 恢复原代理设置
+        setProxy(originalProxy)
         resolve({
           success: true,
           message: '代理连接成功',
@@ -1317,7 +1348,8 @@ ipcMain.handle('proxy:test', async (_event, url: string) => {
       })
 
       req.on('error', (err: any) => {
-        // 恢复原代理设置        setProxy(originalProxy)
+        // 恢复原代理设置
+        setProxy(originalProxy)
         resolve({
           success: false,
           error: err.message || '代理连接失败'
@@ -1326,7 +1358,8 @@ ipcMain.handle('proxy:test', async (_event, url: string) => {
 
       req.on('timeout', () => {
         req.destroy()
-        // 恢复原代理设�?        setProxy(originalProxy)
+        // 恢复原代理设置
+        setProxy(originalProxy)
         resolve({
           success: false,
           error: '代理连接超时'
@@ -1445,8 +1478,6 @@ ipcMain.handle('webPages:delete', (_event, id: number) => {
   }
 });
 
-
-
 ipcMain.handle('webPages:toggleFavorite', (_event, id: number) => {
   try {
     const success = webPagesApi.toggleFavorite(id);
@@ -1461,8 +1492,6 @@ ipcMain.handle('webPages:toggleFavorite', (_event, id: number) => {
   }
 });
 
-
-
 ipcMain.handle('webPages:getFavorites', () => {
   try {
     return { success: true, webPages: webPagesApi.getFavorites() };
@@ -1472,48 +1501,171 @@ ipcMain.handle('webPages:getFavorites', () => {
   }
 });
 
-// 测试网站可达性
-ipcMain.handle('webPages:test', async (_event, url: string) => {
+// ==================== 网页分类 IPC 处理器 ====================
+
+ipcMain.handle('webPagesCategories:getAll', () => {
   try {
-    // 实现基本的网站可达性测试，使用 GET 方法获取更多信息
-    const response = await fetch(url, { timeout: 5000 });
-    
-    if (response.ok) {
-      // 获取网页标题
-      const text = await response.text();
-      const titleMatch = text.match(/<title>([^<]+)<\/title>/i);
-      const title = titleMatch ? titleMatch[1] : '未知网站';
-      
-      return { 
-        success: true, 
-        pageInfo: { title } 
-      };
-    } else {
-      return { 
-        success: false, 
-        error: `HTTP错误: ${response.status} ${response.statusText}` 
-      };
-    }
+    return { success: true, categories: webPagesApi.getAllCategories() };
   } catch (error) {
-    console.error('Failed to test web page:', error);
-    let errorMsg = '测试失败';
-    
-    // 提供更详细的错误信息
-    if (error instanceof Error) {
-      if (error.name === 'TypeError') {
-        errorMsg = 'URL格式错误或网络不可达';
-      } else if (error.name === 'AbortError') {
-        errorMsg = '请求超时，网站可能无法访问';
-      } else {
-        errorMsg = `测试失败: ${error.message}`;
-      }
-    }
-    
-    return { 
-      success: false, 
-      error: errorMsg 
-    };
+    console.error('Failed to get web page categories:', error);
+    return { success: false, error: 'Failed to get web page categories' };
   }
 });
 
+ipcMain.handle('webPagesCategories:getById', (_event, id: number) => {
+  try {
+    const category = webPagesApi.getCategoryById(id);
+    if (category) {
+      return { success: true, category };
+    } else {
+      return { success: false, error: 'Category not found' };
+    }
+  } catch (error) {
+    console.error('Failed to get web page category:', error);
+    return { success: false, error: 'Failed to get web page category' };
+  }
+});
 
+ipcMain.handle('webPagesCategories:create', (_event, category: any) => {
+  try {
+    const id = webPagesApi.createCategory(category);
+    return { success: true, id };
+  } catch (error) {
+    console.error('Failed to create web page category:', error);
+    return { success: false, error: 'Failed to create web page category' };
+  }
+});
+
+ipcMain.handle('webPagesCategories:update', (_event, id: number, category: any) => {
+  try {
+    const success = webPagesApi.updateCategory(id, category);
+    if (success) {
+      return { success: true };
+    } else {
+      return { success: false, error: 'Failed to update web page category' };
+    }
+  } catch (error) {
+    console.error('Failed to update web page category:', error);
+    return { success: false, error: 'Failed to update web page category' };
+  }
+});
+
+ipcMain.handle('webPagesCategories:delete', (_event, id: number) => {
+  try {
+    const result = webPagesApi.deleteCategory(id);
+    if (result.success) {
+      return { success: true };
+    } else {
+      return { success: false, error: result.error || 'Failed to delete web page category' };
+    }
+  } catch (error) {
+    console.error('Failed to delete web page category:', error);
+    return { success: false, error: 'Failed to delete web page category' };
+  }
+});
+
+ipcMain.handle('webPagesCategories:getWebPageCount', (_event, categoryId: number) => {
+  try {
+    const count = webPagesApi.getCategoryWebPageCount(categoryId);
+    return { success: true, count };
+  } catch (error) {
+    console.error('Failed to get web page count:', error);
+    return { success: false, error: 'Failed to get web page count' };
+  }
+});
+
+// ==================== 网页测试 IPC 处理器 ====================
+
+// 测试网站可达性
+ipcMain.handle('webPages:test', async (_event, url: string) => {
+  try {
+    // 获取代理配置
+    const proxyUrl = getProxy();
+    
+    // 使用 Node.js 的 https 模块来测试
+    const https = require('https');
+    const urlObj = new URL(url);
+    
+    const options: any = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    };
+    
+    // 如果配置了代理，使用代理
+    if (proxyUrl) {
+      console.log('Testing web page with proxy:', proxyUrl);
+      const HttpsProxyAgent = require('https-proxy-agent').HttpsProxyAgent;
+      const agent = new HttpsProxyAgent(proxyUrl);
+      options.agent = agent;
+    }
+    
+    return new Promise((resolve) => {
+      const req = https.request(options, (res: any) => {
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 400) {
+          // 收集响应数据
+          let data = '';
+          res.on('data', (chunk: any) => {
+            data += chunk;
+          });
+          
+          res.on('end', () => {
+            // 提取网页标题
+            const titleMatch = data.match(/<title>([^<]+)<\/title>/i);
+            const title = titleMatch ? titleMatch[1] : '未知网站';
+            resolve({ 
+              success: true, 
+              pageInfo: { title } 
+            });
+          });
+        } else {
+          resolve({
+            success: false,
+            error: `HTTP错误: ${res.statusCode}`
+          });
+        }
+      });
+      
+      req.on('error', (err: any) => {
+        console.error('Failed to test web page:', err);
+        let errorMsg = '测试失败';
+        
+        if (err.code === 'ECONNREFUSED') {
+          errorMsg = '连接被拒绝，目标可能不可用';
+        } else if (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
+          errorMsg = '连接超时，网站可能无法访问';
+        } else if (err.code === 'ENOTFOUND') {
+          errorMsg = '域名解析失败';
+        } else {
+          errorMsg = `测试失败: ${err.message}`;
+        }
+        
+        resolve({
+          success: false,
+          error: errorMsg
+        });
+      });
+      
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({
+          success: false,
+          error: '请求超时，网站可能无法访问'
+        });
+      });
+      
+      req.end();
+    });
+  } catch (error) {
+    console.error('Failed to test web page:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '测试失败'
+    };
+  }
+});

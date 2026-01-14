@@ -306,9 +306,13 @@ function App() {
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5 }}
+          style={{ WebkitAppRegion: 'drag' }}
           className="h-14 px-6 flex items-center border-b border-slate-800 dark:border-slate-800 border-slate-200 bg-white dark:bg-slate-900"
         >
-          <h1 className="text-lg font-bold font-heading dark:text-white text-slate-900">
+          <h1 
+            style={{ WebkitAppRegion: 'no-drag' }}
+            className="text-lg font-bold font-heading dark:text-white text-slate-900 select-none"
+          >
             {tabs.find(t => t.id === activeTab)?.label || '摸鱼'}
           </h1>
         </motion.header>

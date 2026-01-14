@@ -9,15 +9,13 @@ import {
   PointerSensor, 
   useSensor, 
   useSensors,
-  DragEndEvent,
-  UniqueIdentifier
+  DragEndEvent
 } from '@dnd-kit/core'
 import { 
   arrayMove, 
   SortableContext, 
   sortableKeyboardCoordinates,
-  useSortable,
-  CSS
+  useSortable
 } from '@dnd-kit/sortable'
 import { CSS as DndCSS } from '@dnd-kit/utilities'
 
@@ -319,26 +317,37 @@ function SortableTodoItem({ todo, toggleTodo, deleteTodo, updateTodo }: {
     <div
       ref={setNodeRef}
       style={style}
-      className={`group overflow-hidden rounded-lg border transition-all cursor-pointer ${
+      className={`group overflow-hidden rounded-lg border transition-all ${
         todo.completed
           ? 'bg-green-500/5 border-green-500/20 dark:bg-green-500/5 dark:border-green-500/20 bg-green-50/30 border-green-200/30'
           : 'bg-slate-800/40 border-slate-700/50 dark:bg-slate-800/40 dark:border-slate-700/50 bg-white/40 border-slate-200/50'
       } hover:border-blue-500/30 dark:hover:border-blue-500/30 hover:border-blue-300/30`}
-      onClick={() => toggleTodo(todo.id)}
     >
       <div className="p-4 flex items-center gap-4">
-        <div className="flex-shrink-0" {...attributes} {...listeners}>
+        {/* 拖动手柄 - 六点图标，增大尺寸 */}
+        <div 
+          className="flex-shrink-0 cursor-grab active:cursor-grabbing p-1" 
+          {...attributes} 
+          {...listeners}
+        >
           <svg 
-            width="20" 
-            height="20" 
-            viewBox="0 0 20 20" 
+            width="24" 
+            height="24" 
+            viewBox="0 0 24 24" 
             fill="currentColor" 
-            className="w-5 h-5 text-slate-400 cursor-grab active:cursor-grabbing"
+            className="w-6 h-6 text-slate-400"
           >
-            <path d="M7 4a1 1 0 0 1 0 2 1 1 0 0 1 0-2Zm0 4a1 1 0 0 1 0 2 1 1 0 0 1 0-2Zm0 4a1 1 0 0 1 0 2 1 1 0 0 1 0-2Zm4-8a1 1 0 0 1 0 2 1 1 0 0 1 0-2Zm0 4a1 1 0 0 1 0 2 1 1 0 0 1 0-2Zm0 4a1 1 0 0 1 0 2 1 1 0 0 1 0-2Z" />
+            <circle cx="8" cy="8" r="2" />
+            <circle cx="8" cy="12" r="2" />
+            <circle cx="8" cy="16" r="2" />
+            <circle cx="16" cy="8" r="2" />
+            <circle cx="16" cy="12" r="2" />
+            <circle cx="16" cy="16" r="2" />
           </svg>
         </div>
-        <div className="flex-shrink-0">
+        
+        {/* 完成状态图标 - 增大尺寸 */}
+        <div className="flex-shrink-0 cursor-pointer" onClick={() => toggleTodo(todo.id)}>
           {todo.completed ? (
             <CheckCircle className="w-6 h-6 text-green-400" />
           ) : (

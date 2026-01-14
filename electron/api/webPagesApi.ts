@@ -8,6 +8,7 @@ export interface WebPage {
   category_id?: number;
   is_favorite?: number;
   is_active?: number;
+  favicon?: string;
   created_at?: number;
   updated_at?: number;
   view_count?: number;
@@ -23,6 +24,108 @@ export interface WebPageCategory {
 }
 
 export const webPagesApi = {
+  // ==================== 分类管理 ====================
+  
+  /**
+   * 获取所有分类
+   */
+  getAllCategories: (): WebPageCategory[] => {
+    const db = getDatabase();
+    return db.prepare(`
+      SELECT * FROM web_page_categories 
+      ORDER BY sort_order ASC
+    `).all() as WebPageCategory[];
+  },
+
+  /**
+   * 根据 ID 获取分类
+   */
+  getCategoryById: (id: number): WebPageCategory | undefined => {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM web_page_categories WHERE id = ?').get(id) as WebPageCategory | undefined;
+  },
+
+  /**
+   * 创建分类
+   */
+  createCategory: (category: Omit<WebPageCategory, 'id' | 'created_at'>): number => {
+    const db = getDatabase();
+    const result = db.prepare(`
+      INSERT INTO web_page_categories (name, icon, color, sort_order, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(category.name, category.icon || null, category.color || null, category.sort_order || 0, Date.now());
+    return result.lastInsertRowid as number;
+  },
+
+  /**
+   * 更新分类
+   */
+  updateCategory: (id: number, category: Partial<Pick<WebPageCategory, 'name' | 'icon' | 'color' | 'sort_order'>>): boolean => {
+    const db = getDatabase();
+    const updates: string[] = [];
+    const values: any[] = [];
+    
+    if (category.name !== undefined) {
+      updates.push('name = ?');
+      values.push(category.name);
+    }
+    if (category.icon !== undefined) {
+      updates.push('icon = ?');
+      values.push(category.icon);
+    }
+    if (category.color !== undefined) {
+      updates.push('color = ?');
+      values.push(category.color);
+    }
+    if (category.sort_order !== undefined) {
+      updates.push('sort_order = ?');
+      values.push(category.sort_order);
+    }
+    
+    if (updates.length === 0) return false;
+    
+    values.push(id);
+    
+    const result = db.prepare(`
+      UPDATE web_page_categories SET ${updates.join(', ')} WHERE id = ?
+    `).run(...values);
+    
+    return result.changes > 0;
+  },
+
+  /**
+   * 删除分类（检查是否有关联网页）
+   */
+  deleteCategory: (id: number): { success: boolean; error?: string; webPageCount?: number } => {
+    const db = getDatabase();
+    
+    // 检查是否有关联网页
+    const countResult = db.prepare('SELECT COUNT(*) as count FROM web_pages WHERE category_id = ?').get(id) as { count: number };
+    
+    if (countResult.count > 0) {
+      return {
+        success: false,
+        error: `无法删除，该分类下还有 ${countResult.count} 个网页`,
+        webPageCount: countResult.count
+      };
+    }
+    
+    const result = db.prepare('DELETE FROM web_page_categories WHERE id = ?').run(id);
+    return {
+      success: result.changes > 0,
+      webPageCount: countResult.count
+    };
+  },
+
+  /**
+   * 获取分类下的网页数量
+   */
+  getCategoryWebPageCount: (categoryId: number): number => {
+    const db = getDatabase();
+    const result = db.prepare('SELECT COUNT(*) as count FROM web_pages WHERE category_id = ?').get(categoryId) as { count: number };
+    return result.count;
+  },
+
   // ==================== 网页收藏管理 ====================
   
   /**
@@ -31,9 +134,9 @@ export const webPagesApi = {
   getAll: (limit: number = 50, offset: number = 0, categoryId?: number, isFavorite?: boolean): WebPage[] => {
     const db = getDatabase();
     let query = `
-      SELECT w.*, nc.name as category_name
+      SELECT w.*, wpc.name as category_name
       FROM web_pages w
-      LEFT JOIN news_categories nc ON w.category_id = nc.id
+      LEFT JOIN web_page_categories wpc ON w.category_id = wpc.id
       WHERE 1=1
     `;
     const params: any[] = [];
@@ -44,7 +147,7 @@ export const webPagesApi = {
     }
     
     if (isFavorite !== undefined) {
-      query += ` AND w.is_favorite = ${isFavorite ? 1 : 0}`;
+      query += ` AND w.is_favorite = ${isFavorite ?1 : 0}`;
     }
     
     query += ' ORDER BY w.created_at DESC LIMIT ? OFFSET ?';
@@ -59,9 +162,9 @@ export const webPagesApi = {
   getById: (id: number): WebPage | undefined => {
     const db = getDatabase();
     return db.prepare(`
-      SELECT w.*, nc.name as category_name
+      SELECT w.*, wpc.name as category_name
       FROM web_pages w
-      LEFT JOIN news_categories nc ON w.category_id = nc.id
+      LEFT JOIN web_page_categories wpc ON w.category_id = wpc.id
       WHERE w.id = ?
     `).get(id) as any;
   },
@@ -72,9 +175,9 @@ export const webPagesApi = {
   getByUrl: (url: string): WebPage | undefined => {
     const db = getDatabase();
     return db.prepare(`
-      SELECT w.*, nc.name as category_name
+      SELECT w.*, wpc.name as category_name
       FROM web_pages w
-      LEFT JOIN news_categories nc ON w.category_id = nc.id
+      LEFT JOIN web_page_categories wpc ON w.category_id = wpc.id
       WHERE w.url = ?
     `).get(url) as any;
   },
@@ -86,8 +189,8 @@ export const webPagesApi = {
     const db = getDatabase();
     const now = Date.now();
     const result = db.prepare(`
-      INSERT INTO web_pages (title, url, description, category_id, is_favorite, is_active, created_at, updated_at, view_count)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO web_pages (title, url, description, category_id, is_favorite, is_active, favicon, created_at, updated_at, view_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       webPage.title,
       webPage.url,
@@ -95,6 +198,7 @@ export const webPagesApi = {
       webPage.category_id || null,
       webPage.is_favorite || 0,
       webPage.is_active || 1,
+      webPage.favicon || null,
       now,
       now,
       webPage.view_count || 0
@@ -105,7 +209,7 @@ export const webPagesApi = {
   /**
    * 更新网页收藏
    */
-  update: (id: number, webPage: Partial<Pick<WebPage, 'title' | 'url' | 'description' | 'category_id' | 'is_favorite' | 'is_active'>>): boolean => {
+  update: (id: number, webPage: Partial<Pick<WebPage, 'title' | 'url' | 'description' | 'category_id' | 'is_favorite' | 'is_active' | 'favicon'>>): boolean => {
     const db = getDatabase();
     const updates: string[] = [];
     const values: any[] = [];
@@ -133,6 +237,10 @@ export const webPagesApi = {
     if (webPage.is_active !== undefined) {
       updates.push('is_active = ?');
       values.push(webPage.is_active);
+    }
+    if (webPage.favicon !== undefined) {
+      updates.push('favicon = ?');
+      values.push(webPage.favicon);
     }
     
     if (updates.length === 0) return false;
@@ -186,9 +294,9 @@ export const webPagesApi = {
   getFavorites: (limit: number = 50, offset: number = 0): WebPage[] => {
     const db = getDatabase();
     return db.prepare(`
-      SELECT w.*, nc.name as category_name
+      SELECT w.*, wpc.name as category_name
       FROM web_pages w
-      LEFT JOIN news_categories nc ON w.category_id = nc.id
+      LEFT JOIN web_page_categories wpc ON w.category_id = wpc.id
       WHERE w.is_favorite = 1
       ORDER BY w.updated_at DESC
       LIMIT ? OFFSET ?
@@ -216,9 +324,9 @@ export const webPagesApi = {
     const db = getDatabase();
     const searchTerm = `%${query}%`;
     return db.prepare(`
-      SELECT w.*, nc.name as category_name
+      SELECT w.*, wpc.name as category_name
       FROM web_pages w
-      LEFT JOIN news_categories nc ON w.category_id = nc.id
+      LEFT JOIN web_page_categories wpc ON w.category_id = wpc.id
       WHERE w.title LIKE ? OR w.description LIKE ? OR w.url LIKE ?
       ORDER BY w.created_at DESC
       LIMIT ? OFFSET ?
