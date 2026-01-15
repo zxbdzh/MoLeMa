@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Rss, FileText, CheckSquare, Newspaper, Home, Settings as SettingsIcon, Moon, Sun, Monitor, X, Minimize, Maximize2, Menu, ChevronLeft, ChevronRight, Link } from 'lucide-react'
+import { Rss, FileText, CheckSquare, Home, Settings as SettingsIcon, Moon, Sun, Monitor, X, Minimize, Maximize2, ChevronLeft, ChevronRight, Link } from 'lucide-react'
 import Tooltip from './components/Tooltip'
 import RSSPage from './components/RSSPage'
 import ArticleReader from './components/ArticleReader'
@@ -118,8 +118,6 @@ function App() {
     { id: 'settings' as TabType, icon: <SettingsIcon className="w-5 h-5" />, label: '设置' }
   ]
 
-  const sidebarWidth = sidebarCollapsed ? 'w-16' : 'w-56'
-
   return (
     <div className={`${theme === 'dark' ? 'dark' : 'light'} min-h-screen bg-slate-950 dark:bg-slate-950 bg-slate-100 text-slate-900 dark:text-white relative overflow-hidden flex`}>
       {/* 星空背景 */}
@@ -172,7 +170,7 @@ function App() {
 
         {/* 导航菜单 */}
         <nav className="flex-1 py-3 px-2 space-y-1 overflow-y-auto overflow-x-hidden">
-          {tabs.map((tab, index) => (
+          {tabs.map((tab) => (
             <Tooltip key={tab.id} content={tab.label} enabled={sidebarCollapsed}>
               <motion.button
                 onClick={() => setActiveTab(tab.id)}
@@ -306,11 +304,11 @@ function App() {
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5 }}
-          style={{ WebkitAppRegion: 'drag' }}
+          style={{ WebkitAppRegion: 'drag' } as any}
           className="h-14 px-6 flex items-center border-b border-slate-800 dark:border-slate-800 border-slate-200 bg-white dark:bg-slate-900"
         >
           <h1 
-            style={{ WebkitAppRegion: 'no-drag' }}
+            style={{ WebkitAppRegion: 'no-drag' } as any}
             className="text-lg font-bold font-heading dark:text-white text-slate-900 select-none"
           >
             {tabs.find(t => t.id === activeTab)?.label || '摸鱼'}

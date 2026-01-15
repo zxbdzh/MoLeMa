@@ -25,13 +25,19 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         remarkPlugins={[remarkGfm]}
         components={{
           // 代码块处理
-          code({ node, inline, className, children, ...props }) {
+          code({ node, className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || '');
-            return !inline && match ? (
+            const language = match ? match[1] : '';
+            
+            // 如果没有 language 类，说明是行内代码
+            if (!match) {
+              return <code {...props} className={className}>{children}</code>;
+            }
+            
+            return (
               <SyntaxHighlighter
-                {...props}
                 style={codeTheme}
-                language={match[1]}
+                language={language}
                 PreTag="div"
                 customStyle={{
                   borderRadius: '0.5rem',
@@ -48,10 +54,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               >
                 {String(children).replace(/\n$/, '')}
               </SyntaxHighlighter>
-            ) : (
-              <code {...props} className={className}>
-                {children}
-              </code>
             );
           },
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Plus, Trash2, RefreshCw, Rss, Clock, ExternalLink, Star, StarOff } from 'lucide-react'
 import { useRSSStore } from '../store/rssStore'
 import { formatDistanceToNow } from 'date-fns'
@@ -14,7 +14,7 @@ const PRESET_FEEDS = [
 ]
 
 export default function RSSPage() {
-  const { feeds, currentFeed, currentArticle, favorites, addFeed, removeFeed, setCurrentFeed, setCurrentArticle, refreshFeed, isFavorite, toggleFavorite } = useRSSStore()
+  const { feeds, currentFeed, favorites, addFeed, removeFeed, setCurrentFeed, setCurrentArticle, refreshFeed, toggleFavorite } = useRSSStore()
   const [newFeedUrl, setNewFeedUrl] = useState('')
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
   const [error, setError] = useState('')

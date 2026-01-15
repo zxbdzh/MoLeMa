@@ -4,22 +4,13 @@ import { useNotesStore, Note } from '../store/notesStore'
 import { Card3D } from './3DCard'
 
 export default function Notes() {
-  const { notes, addNote, updateNote, deleteNote, getNote } = useNotesStore()
+  const { notes, addNote, updateNote, deleteNote } = useNotesStore()
   const [selectedNote, setSelectedNote] = useState<Note | null>(notes[0] || null)
   const [isEditing, setIsEditing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showPreview, setShowPreview] = useState(true)
   const [editTitle, setEditTitle] = useState('')
   const [editContent, setEditContent] = useState('')
-  const [typingEffectEnabled, setTypingEffectEnabled] = useState(true)
-
-  useEffect(() => {
-    window.electronAPI?.store?.get('typingEffectEnabled').then((result) => {
-      if (result?.success) {
-        setTypingEffectEnabled(result.value !== undefined ? result.value : true)
-      }
-    })
-  }, [])
 
   useEffect(() => {
     if (selectedNote) {

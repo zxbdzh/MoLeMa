@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Keyboard, Save, RotateCcw, FolderOpen, Info, Globe, Check, X, RefreshCw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Keyboard, Save, RotateCcw, FolderOpen, Info, Check, X, RefreshCw } from 'lucide-react'
 import { Card3D } from './3DCard'
 
 interface ShortcutConfig {
@@ -32,14 +32,7 @@ export default function Settings() {
 
     window.electronAPI?.database?.getPath().then((result) => {
       if (result?.success) {
-        setDataPath(result.path)
-      }
-    })
-
-    window.electronAPI?.proxy?.get().then((result) => {
-      if (result?.success) {
-        setProxyEnabled(result.config.enabled)
-        setProxyUrl(result.config.url)
+        setDataPath(result.path || '')
       }
     })
   }, [])
@@ -91,7 +84,7 @@ export default function Settings() {
     try {
       const result = await window.electronAPI?.dialog?.selectDirectory()
       if (result?.success && result.path) {
-        const setResult = await window.electronAPI?.database?.setDirectory(result.path)
+        const setResult = await window.electronAPI?.database?.setPath(result.path)
         if (setResult?.success) {
           setDataPath(result.path)
           setPathSaved(true)
@@ -99,7 +92,7 @@ export default function Settings() {
           setMigrationResult(setResult.migratedRecords)
           setTimeout(() => setPathSaved(false), 5000)
         } else {
-          setPathError(setResult?.error || '设置数据库路径失败')
+          setPathError('设置数据库路径失败')
           setMigrationResult(null)
         }
       }
@@ -120,7 +113,7 @@ export default function Settings() {
     setProxyTestResult(null)
 
     try {
-      const result = await window.electronAPI?.proxy?.test(proxyUrl)
+      const result = await window.electronAPI?.proxy?.test?.(proxyUrl)
       setProxyTestResult(result)
     } catch (error) {
       setProxyTestResult({ success: false, error: '测试失败' })
@@ -132,7 +125,7 @@ export default function Settings() {
   const handleSaveProxy = async () => {
     try {
       const url = proxyEnabled ? proxyUrl : null
-      await window.electronAPI?.proxy?.set(url)
+      await window.electronAPI?.proxy?.set?.(url)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch (error) {

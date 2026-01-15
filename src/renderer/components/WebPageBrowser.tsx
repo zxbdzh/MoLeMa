@@ -8,6 +8,8 @@ interface WebPageBrowserProps {
   title: string;
   onClose: () => void;
   onFaviconSave?: (favicon: string) => void;
+  onFavoriteToggle?: (url: string, favicon?: string) => void;
+  isFavorite?: boolean;
 }
 
 // 定义一个简单的样式对象用于解决 Electron 拖拽问题
@@ -76,38 +78,37 @@ export default function WebPageBrowser({ url, title, onClose, onFaviconSave }: W
             const faviconUrlPath = `${origin}/favicon.ico`;
             faviconUrl.current = faviconUrlPath;
             if (onFaviconSave) onFaviconSave(faviconUrlPath);
-          } catch (err) {
-            console.error(err);
+          } catch {
+            console.error('Error getting favicon');
           }
         }
 
         const pageTitle = await webview.executeJavaScript('document.title');
         if (pageTitle) setCurrentTitle(pageTitle);
-      } catch (err) {
-        console.error(err);
+      } catch {
+        console.error('Error in dom-ready handler');
       }
     }
 
-    const handleDidNavigate = (e: any) => {
+    const handleDidNavigate = () => {
       setLoading(true);
       setError(null);
       handleNavigationStateChange();
     }
 
-    const handleDidNavigateInPage = (e: any) => {
+    const handleDidNavigateInPage = () => {
       setLoading(false);
       handleNavigationStateChange();
     }
 
-    const handleDidFailLoad = (e: any) => {
+    const handleDidFailLoad = () => {
       setLoading(false);
-      setError(`页面加载失败: ${e.errorDescription}`);
+      setError('页面加载失败');
       handleNavigationStateChange();
     }
 
-    const handleNewWindow = (e: any) => {
-      e.preventDefault();
-      window.open(e.url, '_blank');
+    const handleNewWindow = (_e: any) => {
+      window.open(_e.url, '_blank');
     }
 
     const handleNavigationStateChange = () => {
@@ -170,9 +171,7 @@ export default function WebPageBrowser({ url, title, onClose, onFaviconSave }: W
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex flex-col"
         >
-          {/* 标题栏
-          FIX 1: 添加 relative z-50 shrink-0 确保标题栏在 webview 之上且不被压缩
-        */}
+          {/* 标题栏 */}
           <motion.div
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -180,13 +179,11 @@ export default function WebPageBrowser({ url, title, onClose, onFaviconSave }: W
               className="w-full h-14 flex items-center justify-between px-4 border-b border-white/20 dark:border-white/20 bg-white/30 dark:bg-black/40 backdrop-blur-xl relative z-50 shrink-0"
           >
             {/* 左侧按钮组 */}
-            {/* FIX 2: 给按钮组容器添加 no-drag 样式 (可选，但建议直接加在按钮上) */}
             <div className="flex items-center gap-3">
               <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={handleGoBack}
-                  // FIX 3: 添加 no-drag 样式，防止 Electron 窗口拖拽拦截点击
                   style={noDragStyle as any}
                   className={`p-2 rounded-lg transition-colors ${canGoBack ? 'hover:bg-white/20 dark:hover:bg-white/20' : 'opacity-50 cursor-not-allowed'}`}
                   disabled={!canGoBack || loading}
@@ -221,7 +218,7 @@ export default function WebPageBrowser({ url, title, onClose, onFaviconSave }: W
                       src={faviconUrl.current}
                       alt=""
                       className="w-6 h-6 rounded flex-shrink-0"
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      onError={() => { faviconUrl.current = null; }}
                   />
               )}
               <div className="max-w-xs md:max-w-md overflow-hidden text-ellipsis whitespace-nowrap">
@@ -237,7 +234,6 @@ export default function WebPageBrowser({ url, title, onClose, onFaviconSave }: W
                   rel="noopener noreferrer"
                   whileHover={loading ? {} : { scale: 1.1 }}
                   whileTap={loading ? {} : { scale: 0.9 }}
-                  // FIX 4: 右侧按钮添加 no-drag 样式
                   style={noDragStyle as any}
                   className={`p-2 rounded-lg transition-colors ${
                       loading
@@ -245,8 +241,8 @@ export default function WebPageBrowser({ url, title, onClose, onFaviconSave }: W
                           : 'hover:bg-white/20 dark:hover:bg-white/20'
                   }`}
                   title={loading ? '页面加载中' : '在外部浏览器打开'}
-                  onClick={(e) => {
-                    if (loading) e.preventDefault();
+                  onClick={() => {
+                    // 阻止默认行为
                   }}
               >
                 <ExternalLink className="w-5 h-5 text-gray-900 dark:text-white" />
@@ -255,7 +251,6 @@ export default function WebPageBrowser({ url, title, onClose, onFaviconSave }: W
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={onClose}
-                  // FIX 5: 关闭按钮添加 no-drag 样式
                   style={noDragStyle as any}
                   className="p-2 hover:bg-white/20 dark:hover:bg-white/20 rounded-lg transition-colors"
                   title="关闭"

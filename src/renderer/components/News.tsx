@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { ExternalLink, Clock, Code, Globe, RefreshCw, Filter, Link, Zap, Rocket, Plus, Trash2, Edit2, X, Check, Settings, Star, StarOff, Monitor } from 'lucide-react'
+import { ExternalLink, Clock, Code, Globe, RefreshCw, Filter, Link, Zap, Rocket, Plus, Trash2, Edit2, X, Check, Settings, Star, StarOff } from 'lucide-react'
 import { Card3D } from './3DCard'
 import WebPageBrowser from './WebPageBrowser'
 
@@ -15,13 +15,6 @@ interface WebPage {
   updated_at?: number
   view_count?: number
   category_name?: string
-}
-
-interface WebPageCategory {
-  id?: number
-  name: string
-  icon?: string
-  color?: string
 }
 
 const categories = [
@@ -41,7 +34,6 @@ export default function WebPages() {
 
   // 网页管理
   const [showManager, setShowManager] = useState(false)
-  const [pages, setPages] = useState<WebPage[]>([])
   const [editingPage, setEditingPage] = useState<WebPage | null>(null)
   const [pageForm, setPageForm] = useState<WebPage>({
     title: '',
@@ -65,14 +57,12 @@ export default function WebPages() {
     setError(null)
     try {
       // 从数据库获取网页收藏
-      const result = await window.electronAPI?.webPages?.getAll(
-        selectedCategory === 'all' ? undefined : selectedCategory
-      )
+      const result = await window.electronAPI?.webPages?.getAll()
       
       if (result?.success) {
-        setWebPages(result.pages || [])
+        setWebPages(result.webPages || [])
       } else {
-        setError(result?.error || '获取网页收藏失败')
+        setError('获取网页收藏失败')
       }
     } catch (err) {
       console.error('Failed to fetch web pages:', err)
@@ -161,8 +151,13 @@ export default function WebPages() {
 
   const handleToggleFavorite = async (id: number) => {
     try {
-      await window.electronAPI?.webPages?.toggleFavorite(id)
-      await fetchWebPages()
+      const webPage = webPages.find(wp => wp.id === id)
+      if (webPage) {
+        await window.electronAPI?.webPages?.update(id, {
+          is_favorite: webPage.is_favorite === 1 ? 0 : 1
+        })
+        await fetchWebPages()
+      }
     } catch (error) {
       console.error('Failed to toggle favorite:', error)
     }
@@ -190,10 +185,6 @@ export default function WebPages() {
   }
 
   const handleViewPage = async (page: WebPage) => {
-    // 增加访问次数
-    if (page.id) {
-      await window.electronAPI?.webPages?.incrementViewCount(page.id)
-    }
     setSelectedWebPage(page)
   }
 
@@ -531,10 +522,7 @@ export default function WebPages() {
         <WebPageBrowser
           url={selectedWebPage.url}
           title={selectedWebPage.title}
-          description={selectedWebPage.description}
           onClose={() => setSelectedWebPage(null)}
-          onFavoriteToggle={selectedWebPage.id ? () => handleToggleFavorite(selectedWebPage.id!) : undefined}
-          isFavorite={!!selectedWebPage.is_favorite}
         />
       )}
     </div>

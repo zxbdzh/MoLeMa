@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Plus, Trash2, Save, Eye, EyeOff, Search, FileText, Calendar, Clock, Edit2 } from 'lucide-react'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { Card3D } from './3DCard'
@@ -39,10 +39,11 @@ export default function Notes() {
     try {
       setLoading(true)
       const result = await window.electronAPI?.notes?.getAll()
-      if (result?.success) {
-        setNotes(result.notes)
-        if (result.notes.length > 0 && !selectedNote) {
-          setSelectedNote(result.notes[0])
+      if (result?.success && result.notes) {
+        const notes = result.notes as Note[]
+        setNotes(notes)
+        if (notes.length > 0 && !selectedNote) {
+          setSelectedNote(notes[0])
         }
       }
     } catch (error) {

@@ -7,7 +7,6 @@ interface AnimatedCardProps {
   delay?: number
   hover?: boolean
   glow?: boolean
-  tilt?: boolean
   onClick?: () => void
 }
 
@@ -17,7 +16,6 @@ export default function AnimatedCard({
   delay = 0,
   hover = true,
   glow = true,
-  tilt = false,
   onClick
 }: AnimatedCardProps) {
   return (

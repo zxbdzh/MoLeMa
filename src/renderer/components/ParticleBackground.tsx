@@ -10,13 +10,17 @@ export default function ParticleBackground() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    // TypeScript 非空断言，因为上面已经检查了 null
+    const nonNullCanvas = canvas as HTMLCanvasElement
+    const nonNullCtx = ctx as CanvasRenderingContext2D
+
     let particles: Particle[] = []
     let animationFrameId: number
     let mouse: { x: number; y: number } = { x: 0, y: 0 }
 
     const resizeCanvas = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
+      nonNullCanvas.width = window.innerWidth
+      nonNullCanvas.height = window.innerHeight
     }
 
     class Particle {
@@ -29,8 +33,8 @@ export default function ParticleBackground() {
       originalSize: number
 
       constructor() {
-        this.x = Math.random() * canvas.width
-        this.y = Math.random() * canvas.height
+        this.x = Math.random() * nonNullCanvas.width
+        this.y = Math.random() * nonNullCanvas.height
         this.vx = (Math.random() - 0.5) * 0.5
         this.vy = (Math.random() - 0.5) * 0.5
         this.size = Math.random() * 3 + 1
@@ -74,27 +78,27 @@ export default function ParticleBackground() {
         this.y += this.vy
 
         // 边界反弹
-        if (this.x < 0 || this.x > canvas.width) {
+        if (this.x < 0 || this.x > nonNullCanvas.width) {
           this.vx *= -1
-          this.x = Math.max(0, Math.min(canvas.width, this.x))
+          this.x = Math.max(0, Math.min(nonNullCanvas.width, this.x))
         }
-        if (this.y < 0 || this.y > canvas.height) {
+        if (this.y < 0 || this.y > nonNullCanvas.height) {
           this.vy *= -1
-          this.y = Math.max(0, Math.min(canvas.height, this.y))
+          this.y = Math.max(0, Math.min(nonNullCanvas.height, this.y))
         }
       }
 
       draw() {
-        ctx.beginPath()
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2)
-        ctx.fillStyle = this.color
-        ctx.fill()
+        nonNullCtx.beginPath()
+        nonNullCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2)
+        nonNullCtx.fillStyle = this.color
+        nonNullCtx.fill()
       }
     }
 
     const initParticles = () => {
       particles = []
-      const particleCount = Math.floor((canvas.width * canvas.height) / 25000)
+      const particleCount = Math.floor((nonNullCanvas.width * nonNullCanvas.height) / 25000)
       for (let i = 0; i < particleCount; i++) {
         particles.push(new Particle())
       }
@@ -109,19 +113,19 @@ export default function ParticleBackground() {
 
           if (distance < 120) {
             const opacity = (1 - distance / 120) * 0.15
-            ctx.beginPath()
-            ctx.strokeStyle = `rgba(148, 163, 184, ${opacity})`
-            ctx.lineWidth = 0.5
-            ctx.moveTo(particles[i].x, particles[i].y)
-            ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.stroke()
+            nonNullCtx.beginPath()
+            nonNullCtx.strokeStyle = `rgba(148, 163, 184, ${opacity})`
+            nonNullCtx.lineWidth = 0.5
+            nonNullCtx.moveTo(particles[i].x, particles[i].y)
+            nonNullCtx.lineTo(particles[j].x, particles[j].y)
+            nonNullCtx.stroke()
           }
         }
       }
     }
 
     const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      nonNullCtx.clearRect(0, 0, nonNullCanvas.width, nonNullCanvas.height)
 
       particles.forEach((particle) => {
         particle.update()

@@ -1,4 +1,4 @@
-interface ElectronAPI {
+export interface ElectronAPI {
   // 窗口控制
   toggleWindow: () => void
   minimizeWindow: () => void
@@ -36,7 +36,7 @@ interface ElectronAPI {
   // 数据库 API
   database: {
     getPath: () => Promise<{ success: boolean; path?: string }>
-    setPath: (path: string) => Promise<{ success: boolean; message?: string; requiresRestart?: boolean }>
+    setPath: (path: string) => Promise<{ success: boolean; message?: string; requiresRestart?: boolean; migratedRecords?: any }>
   }
 
   // 笔记 API
@@ -132,6 +132,13 @@ interface ElectronAPI {
   dialog: {
     selectDirectory: () => Promise<{ success: boolean; path?: string; canceled?: boolean }>
     selectDatabaseFile: () => Promise<{ success: boolean; path?: string; canceled?: boolean }>
+  }
+
+  // 代理 API
+  proxy: {
+    get: () => Promise<{ success: boolean; config?: { enabled: boolean; url?: string } }>
+    set: (url: string | null) => Promise<{ success: boolean }>
+    test: (url: string) => Promise<{ success: boolean; message?: string; error?: string }>
   }
 
   // 平台信息
