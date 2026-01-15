@@ -78,14 +78,15 @@ function createWindow() {
     frame: false,
     transparent: false,
     backgroundColor: '#0f172a',
-    webPreferences: {
-      preload: path.join(__dirname, '../preload/index.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      webSecurity: true,
-      webviewTag: true // 启用webview标签
-    },
-    icon: path.join(__dirname, '../../resources/icon.png')
+      webPreferences: {
+        preload: path.join(__dirname, '../preload/index.cjs'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        webSecurity: false, // 禁用 webSecurity 以允许跨域请求
+        webviewTag: true, // 启用webview标签
+        allowRunningInsecureContent: false,
+        allowDisplayingInsecureContent: false
+      },    icon: path.join(__dirname, '../../resources/icon.png')
   })
 
   // 开发模式下加载 Vite 开发服务器
@@ -1667,5 +1668,237 @@ ipcMain.handle('webPages:test', async (_event, url: string) => {
       success: false,
       error: error instanceof Error ? error.message : '测试失败'
     };
+  }
+});
+
+// ==================== BrowserView 相关 IPC 处理器 ====================
+
+// BrowserView 实例存储
+const browserViews = new Map<string, Electron.BrowserView>();
+
+// 创建 BrowserView
+ipcMain.handle('browserView:create', async (_event, id: string, options?: any) => {
+  try {
+    if (browserViews.has(id)) {
+      browserViews.get(id)?.destroy();
+    }
+
+    const browserView = new BrowserView({
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        webSecurity: true,
+        sandbox: true, // 启用沙盒以提高安全性
+        ...options?.webPreferences
+      }
+    });
+
+    browserViews.set(id, browserView);
+
+    return { success: true, id };
+  } catch (error) {
+    console.error('Failed to create BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to create BrowserView' };
+  }
+});
+
+// 加载 URL 到 BrowserView
+ipcMain.handle('browserView:loadURL', async (_event, id: string, url: string) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    await browserView.webContents.loadURL(url);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to load URL in BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to load URL' };
+  }
+});
+
+// BrowserView 后退
+ipcMain.handle('browserView:goBack', async (_event, id: string) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    if (browserView.webContents.canGoBack()) {
+      browserView.webContents.goBack();
+      return { success: true };
+    }
+
+    return { success: false, error: 'Cannot go back' };
+  } catch (error) {
+    console.error('Failed to go back in BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to go back' };
+  }
+});
+
+// BrowserView 前进
+ipcMain.handle('browserView:goForward', async (_event, id: string) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    if (browserView.webContents.canGoForward()) {
+      browserView.webContents.goForward();
+      return { success: true };
+    }
+
+    return { success: false, error: 'Cannot go forward' };
+  } catch (error) {
+    console.error('Failed to go forward in BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to go forward' };
+  }
+});
+
+// BrowserView 刷新
+ipcMain.handle('browserView:reload', async (_event, id: string) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    browserView.webContents.reload();
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to reload BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to reload' };
+  }
+});
+
+// BrowserView 停止加载
+ipcMain.handle('browserView:stop', async (_event, id: string) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    browserView.webContents.stop();
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to stop BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to stop' };
+  }
+});
+
+// 获取 BrowserView 的当前 URL
+ipcMain.handle('browserView:getURL', async (_event, id: string) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    const url = browserView.webContents.getURL();
+    return { success: true, url };
+  } catch (error) {
+    console.error('Failed to get URL from BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to get URL' };
+  }
+});
+
+// 获取 BrowserView 的标题
+ipcMain.handle('browserView:getTitle', async (_event, id: string) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    const title = browserView.webContents.getTitle();
+    return { success: true, title };
+  } catch (error) {
+    console.error('Failed to get title from BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to get title' };
+  }
+});
+
+// 判断 BrowserView 是否可以后退
+ipcMain.handle('browserView:canGoBack', async (_event, id: string) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    const canGoBack = browserView.webContents.canGoBack();
+    return { success: true, canGoBack };
+  } catch (error) {
+    console.error('Failed to check if can go back in BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to check if can go back' };
+  }
+});
+
+// 判断 BrowserView 是否可以前进
+ipcMain.handle('browserView:canGoForward', async (_event, id: string) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    const canGoForward = browserView.webContents.canGoForward();
+    return { success: true, canGoForward };
+  } catch (error) {
+    console.error('Failed to check if can go forward in BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to check if can go forward' };
+  }
+});
+
+// 设置 BrowserView 的大小和位置
+ipcMain.handle('browserView:setBounds', async (_event, id: string, bounds: Electron.Rectangle) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    browserView.setBounds(bounds);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to set bounds for BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to set bounds' };
+  }
+});
+
+// 销毁 BrowserView
+ipcMain.handle('browserView:destroy', async (_event, id: string) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    browserView.destroy();
+    browserViews.delete(id);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to destroy BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to destroy' };
+  }
+});
+
+// BrowserView 执行 JavaScript
+ipcMain.handle('browserView:executeJavaScript', async (_event, id: string, code: string) => {
+  try {
+    const browserView = browserViews.get(id);
+    if (!browserView) {
+      return { success: false, error: 'BrowserView not found' };
+    }
+
+    const result = await browserView.webContents.executeJavaScript(code);
+    return { success: true, result };
+  } catch (error) {
+    console.error('Failed to execute JavaScript in BrowserView:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to execute JavaScript' };
   }
 });

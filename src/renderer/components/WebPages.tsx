@@ -849,7 +849,6 @@ export default function WebPages() {
         <WebPageBrowser
           url={currentWebPage.url}
           title={currentWebPage.title}
-          description={currentWebPage.description}
           isFavorite={currentWebPage.is_favorite === 1}
           onFaviconSave={async (favicon: string) => {
             try {

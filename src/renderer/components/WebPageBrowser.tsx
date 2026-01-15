@@ -1,20 +1,21 @@
 import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, ArrowLeft, ExternalLink, Loader2, AlertCircle, Star, StarOff, RotateCcw } from 'lucide-react'
+import { X, ArrowLeft, ArrowRight, ExternalLink, Loader2, AlertCircle, RotateCcw } from 'lucide-react'
 
 interface WebPageBrowserProps {
   url: string;
   title: string;
   onClose: () => void;
-  onFavoriteToggle?: (url: string, favicon?: string) => void;
   onFaviconSave?: (favicon: string) => void;
-  isFavorite?: boolean;
 }
 
-export default function WebPageBrowser({ url, title, onClose, onFavoriteToggle, onFaviconSave, isFavorite }: WebPageBrowserProps) {
+export default function WebPageBrowser({ url, title, onClose, onFaviconSave }: WebPageBrowserProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentTitle, setCurrentTitle] = useState(title) // 添加状态跟踪当前页面标题
+  const [canGoBack, setCanGoBack] = useState(false) // 添加后退状态
+  const [canGoForward, setCanGoForward] = useState(false) // 添加前进状态
   const webviewRef = useRef<HTMLWebViewElement>(null);
 
   // 确保URL带有协议前缀
@@ -46,8 +47,9 @@ export default function WebPageBrowser({ url, title, onClose, onFavoriteToggle, 
     // 处理webview DOM 准备就绪（优先使用，提前结束loading）
     const handleDomReady = async () => {
       setLoading(false);
-      // 尝试获取网页 favicon
+      // 尝试获取网页 favicon 和标题
       try {
+        // 获取 favicon
         const favicons = await webview.executeJavaScript(`
           (function() {
             const links = document.querySelectorAll('link[rel*="icon"]');
@@ -64,6 +66,8 @@ export default function WebPageBrowser({ url, title, onClose, onFavoriteToggle, 
           })()
         `) as any[];
 
+        let faviconFound = false;
+        
         if (favicons && favicons.length > 0) {
           // 找到最佳 favicon（优先使用 apple-touch-icon，然后是 icon）
           let bestIcon = favicons.find(f => f.rel && f.rel.includes('apple-touch-icon'));
@@ -77,6 +81,7 @@ export default function WebPageBrowser({ url, title, onClose, onFavoriteToggle, 
           // 保存 favicon URL
           if (bestIcon && bestIcon.href) {
             faviconUrl.current = bestIcon.href;
+            faviconFound = true;
             console.log('Found favicon:', bestIcon.href);
 
             // 立即保存 favicon 到数据库
@@ -85,15 +90,53 @@ export default function WebPageBrowser({ url, title, onClose, onFavoriteToggle, 
             }
           }
         }
+        
+        // 如果没有获取到 favicon，尝试使用网站根目录的 favicon.ico
+        if (!faviconFound) {
+          try {
+            const origin = new URL(normalizedUrl).origin;
+            const faviconUrlPath = `${origin}/favicon.ico`;
+            // 尝试设置 favicon.ico 作为备用
+            faviconUrl.current = faviconUrlPath;
+            console.log('Using default favicon at root:', faviconUrlPath);
+            
+            // 保存 favicon 到数据库
+            if (onFaviconSave) {
+              onFaviconSave(faviconUrlPath);
+            }
+          } catch (err) {
+            console.error('Failed to set default favicon.ico:', err);
+          }
+        }
+        
+        // 获取页面标题
+        const pageTitle = await webview.executeJavaScript('document.title');
+        if (pageTitle) {
+          setCurrentTitle(pageTitle);
+        }
       } catch (err) {
-        console.error('Failed to get favicon:', err);
+        console.error('Failed to get favicon or title:', err);
       }
     }
 
-    // 处理webview加载失败
-    const handleDidFailLoad = () => {
+    // 处理页面导航（跳转链接时触发）
+    const handleDidNavigate = (e: any) => {
+      console.log('Page navigated to:', e.url);
+      setLoading(true);
+      setError(null);
+    }
+
+    // 处理页面内导航（如锚点链接）
+    const handleDidNavigateInPage = (e: any) => {
+      console.log('Navigated within page to:', e.url);
       setLoading(false);
-      setError('页面加载失败');
+    }
+
+    // 处理webview加载失败
+    const handleDidFailLoad = (e: any) => {
+      console.error('Page load failed:', e);
+      setLoading(false);
+      setError(`页面加载失败: ${e.errorDescription}`);
     }
 
     // 处理新窗口请求
@@ -102,20 +145,80 @@ export default function WebPageBrowser({ url, title, onClose, onFavoriteToggle, 
       window.open(e.url, '_blank');
     }
 
+    // 处理页面权限请求
+    const handlePermissionRequest = (e: any) => {
+      console.log('Permission requested:', e.permission);
+      // 对于某些权限请求，允许它们
+      if (['media', 'geolocation', 'notifications'].includes(e.permission)) {
+        e.preventDefault();
+        e.callback(false); // 拒绝这些权限
+      }
+      // 对于其他权限，默认允许
+    }
+    
+    // 处理页面标题更新
+    const handleTitleUpdated = (e: any) => {
+      console.log('Title updated:', e.title);
+      setCurrentTitle(e.title);
+    }
+
+    // 处理导航状态更新
+    const handleUpdateTargetUrl = (e: any) => {
+      // 暂时记录目标 URL，可以用于调试
+      console.log('Target URL updated:', e.url);
+    }
+
+    // 处理导航状态变化
+    const handleNavigationStateChange = () => {
+      // 更新导航状态
+      if (webviewRef.current) {
+        setCanGoBack(webviewRef.current.canGoBack());
+        setCanGoForward(webviewRef.current.canGoForward());
+      }
+    }
+
+    // 定义复合处理函数
+    const handleDidNavigateWithStateUpdate = (e: any) => {
+      handleDidNavigate(e);
+      handleNavigationStateChange();
+    };
+    
+    const handleDidNavigateInPageWithStateUpdate = (e: any) => {
+      handleDidNavigateInPage(e);
+      handleNavigationStateChange();
+    };
+    
+    const handleDidFailLoadWithStateUpdate = (e: any) => {
+      handleDidFailLoad(e);
+      handleNavigationStateChange();
+    };
+
     // 添加事件监听器
     webview.addEventListener('did-start-loading', handleDidStartLoading);
     webview.addEventListener('dom-ready', handleDomReady);
-    webview.addEventListener('did-fail-load', handleDidFailLoad);
+    webview.addEventListener('did-navigate', handleDidNavigateWithStateUpdate);  // 监听页面跳转
+    webview.addEventListener('did-navigate-in-page', handleDidNavigateInPageWithStateUpdate);  // 监听页面内跳转
+    webview.addEventListener('did-fail-load', handleDidFailLoadWithStateUpdate);
     webview.addEventListener('new-window', handleNewWindow);
+    webview.addEventListener('permission-request', handlePermissionRequest);
+    webview.addEventListener('page-title-updated', handleTitleUpdated);
+    webview.addEventListener('update-target-url', handleUpdateTargetUrl);
+    webview.addEventListener('did-frame-finish-load', handleNavigationStateChange); // 页面加载完成时更新导航状态
 
     // 清理函数中移除事件监听器
     return () => {
       webview.removeEventListener('did-start-loading', handleDidStartLoading);
       webview.removeEventListener('dom-ready', handleDomReady);
-      webview.removeEventListener('did-fail-load', handleDidFailLoad);
+      webview.removeEventListener('did-navigate', handleDidNavigateWithStateUpdate);
+      webview.removeEventListener('did-navigate-in-page', handleDidNavigateInPageWithStateUpdate);
+      webview.removeEventListener('did-fail-load', handleDidFailLoadWithStateUpdate);
       webview.removeEventListener('new-window', handleNewWindow);
+      webview.removeEventListener('permission-request', handlePermissionRequest);
+      webview.removeEventListener('page-title-updated', handleTitleUpdated);
+      webview.removeEventListener('update-target-url', handleUpdateTargetUrl);
+      webview.removeEventListener('did-frame-finish-load', handleNavigationStateChange);
     };
-  }, [onFavoriteToggle]);
+  }, []);
 
   const handleRefresh = () => {
     setLoading(true);
@@ -126,28 +229,65 @@ export default function WebPageBrowser({ url, title, onClose, onFavoriteToggle, 
     }
   }
 
+  const handleGoBack = () => {
+    if (webviewRef.current && canGoBack) {
+      webviewRef.current.goBack();
+      setLoading(true);
+    }
+  }
+
+  const handleGoForward = () => {
+    if (webviewRef.current && canGoForward) {
+      webviewRef.current.goForward();
+      setLoading(true);
+    }
+  }
+
   return createPortal(
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col"
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex flex-col"
       >
+        {/* 标题栏 */}
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -20, opacity: 0 }}
-          className="w-full h-14 flex items-center justify-between px-4 border-b border-white/10 dark:border-white/10 border-slate-200 bg-black/20 dark:bg-black/20 bg-slate-50/50"
+          className="w-full h-14 flex items-center justify-between px-4 border-b border-white/20 dark:border-white/20 bg-white/30 dark:bg-black/40 backdrop-blur-xl"
         >
+          {/* 左侧按钮组 */}
           <div className="flex items-center gap-3">
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={onClose}
-              className="p-2 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-slate-200 rounded-lg transition-colors"
+              onClick={handleGoBack}
+              className={`p-2 rounded-lg transition-colors ${canGoBack ? 'hover:bg-white/20 dark:hover:bg-white/20' : 'opacity-50 cursor-not-allowed'}`}
+              disabled={!canGoBack || loading}
+              title={canGoBack ? '后退' : '无法后退'}
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5 text-gray-900 dark:text-white" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={handleGoForward}
+              className={`p-2 rounded-lg transition-colors ${canGoForward ? 'hover:bg-white/20 dark:hover:bg-white/20' : 'opacity-50 cursor-not-allowed'}`}
+              disabled={!canGoForward || loading}
+              title={canGoForward ? '前进' : '无法前进'}
+            >
+              <ArrowRight className="w-5 h-5 text-gray-900 dark:text-white" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={handleRefresh}
+              className="p-2 hover:bg-white/20 dark:hover:bg-white/20 rounded-lg transition-colors"
+              title="刷新页面"
+            >
+              <RotateCcw className={`w-5 h-5 text-gray-900 dark:text-white ${loading ? 'animate-spin' : ''}`} />
             </motion.button>
             {faviconUrl.current && (
               <img
@@ -160,60 +300,49 @@ export default function WebPageBrowser({ url, title, onClose, onFavoriteToggle, 
               />
             )}
             <div className="max-w-xs md:max-w-md overflow-hidden text-ellipsis whitespace-nowrap">
-              <span className="text-sm text-gray-400 dark:text-gray-400 text-slate-600">{title}</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">{currentTitle}</span>
             </div>
           </div>
+
+          {/* 右侧按钮组 */}
           <div className="flex items-center gap-2">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={handleRefresh}
-              className="p-2 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-slate-200 rounded-lg transition-colors"
-              title="刷新页面"
-            >
-              <RotateCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-            </motion.button>
             <motion.a
-              href={normalizedUrl}
-              target="_blank"
+              href={loading ? undefined : normalizedUrl}
+              target={loading ? undefined : "_blank"}
               rel="noopener noreferrer"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="p-2 hover:bg-white/10 dark:hover:bg-white/10 hover:bg-slate-200 rounded-lg transition-colors"
-              title="在外部浏览器打开"
+              whileHover={loading ? {} : { scale: 1.1 }}
+              whileTap={loading ? {} : { scale: 0.9 }}
+              className={`p-2 rounded-lg transition-colors ${
+                loading
+                  ? 'opacity-50 cursor-not-allowed'
+                  : 'hover:bg-white/20 dark:hover:bg-white/20'
+              }`}
+              title={loading ? '页面加载中' : '在外部浏览器打开'}
+              onClick={(e) => {
+                if (loading) {
+                  e.preventDefault();
+                }
+              }}
             >
-              <ExternalLink className="w-5 h-5" />
+              <ExternalLink className="w-5 h-5 text-gray-900 dark:text-white" />
             </motion.a>
-            {onFavoriteToggle && (
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => onFavoriteToggle(url, faviconUrl.current || undefined)}
-                className={`p-2 rounded-lg transition-colors ${
-                  isFavorite
-                    ? 'text-yellow-400 hover:bg-yellow-500/20'
-                    : 'text-slate-600 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-gray-300'
-                }`}
-                title={isFavorite ? '取消收藏' : '收藏'}
-              >
-                {isFavorite ? <Star className="w-5 h-5 fill-current" /> : <StarOff className="w-5 h-5" />}
-              </motion.button>
-            )}
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={onClose}
-              className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
+              className="p-2 hover:bg-white/20 dark:hover:bg-white/20 rounded-lg transition-colors"
+              title="关闭"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 text-gray-900 dark:text-white" />
             </motion.button>
           </div>
         </motion.div>
 
+        {/* webview 容器 */}
         <div className="flex-1 relative overflow-hidden bg-white dark:bg-slate-900">
           {loading && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
-              <Loader2 className="w-12 h-12 animate-spin text-purple-400 mb-4" />
+              <Loader2 className="w-12 h-12 animate-spin text-blue-500 mb-4" />
               <p className="text-gray-400 dark:text-gray-400 text-slate-600">加载中...</p>
             </div>
           )}
@@ -253,7 +382,7 @@ export default function WebPageBrowser({ url, title, onClose, onFavoriteToggle, 
             title={title}
             className="w-full h-full"
             partition="persist:webview"
-            webpreferences="nodeIntegration=no, contextIsolation=yes"
+            webpreferences="nodeIntegration=no, contextIsolation=yes, webSecurity=yes, allowRunningInsecureContent=no, allowDisplayingInsecureContent=no, allowPopups=yes, nativeWindowOpen=yes"
           />
         </div>
       </motion.div>

@@ -161,7 +161,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
 
   // 版本信息
-  versions: process.versions
+  versions: process.versions,
+
+  // BrowserView API
+  browserView: {
+    create: (id: string, options?: any) => ipcRenderer.invoke('browserView:create', id, options),
+    loadURL: (id: string, url: string) => ipcRenderer.invoke('browserView:loadURL', id, url),
+    goBack: (id: string) => ipcRenderer.invoke('browserView:goBack', id),
+    goForward: (id: string) => ipcRenderer.invoke('browserView:goForward', id),
+    reload: (id: string) => ipcRenderer.invoke('browserView:reload', id),
+    stop: (id: string) => ipcRenderer.invoke('browserView:stop', id),
+    getURL: (id: string) => ipcRenderer.invoke('browserView:getURL', id),
+    getTitle: (id: string) => ipcRenderer.invoke('browserView:getTitle', id),
+    canGoBack: (id: string) => ipcRenderer.invoke('browserView:canGoBack', id),
+    canGoForward: (id: string) => ipcRenderer.invoke('browserView:canGoForward', id),
+    setBounds: (id: string, bounds: Electron.Rectangle) => ipcRenderer.invoke('browserView:setBounds', id, bounds),
+    destroy: (id: string) => ipcRenderer.invoke('browserView:destroy', id),
+    executeJavaScript: (id: string, code: string) => ipcRenderer.invoke('browserView:executeJavaScript', id, code)
+  }
 })
 
 // 类型声明（仅用于开发时的类型提示，不会被编译到最终代码中）
@@ -182,6 +199,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
  * @property {(shortcuts: any) => Promise<any>} shortcuts.set
  * @property {string} platform
  * @property {NodeJS.ProcessVersions} versions
+ * @property {Object} browserView
+ * @property {(id: string, options?: any) => Promise<any>} browserView.create
+ * @property {(id: string, url: string) => Promise<any>} browserView.loadURL
+ * @property {(id: string) => Promise<any>} browserView.goBack
+ * @property {(id: string) => Promise<any>} browserView.goForward
+ * @property {(id: string) => Promise<any>} browserView.reload
+ * @property {(id: string) => Promise<any>} browserView.stop
+ * @property {(id: string) => Promise<any>} browserView.getURL
+ * @property {(id: string) => Promise<any>} browserView.getTitle
+ * @property {(id: string) => Promise<any>} browserView.canGoBack
+ * @property {(id: string) => Promise<any>} browserView.canGoForward
+ * @property {(id: string, bounds: Electron.Rectangle) => Promise<any>} browserView.setBounds
+ * @property {(id: string) => Promise<any>} browserView.destroy
+ * @property {(id: string, code: string) => Promise<any>} browserView.executeJavaScript
  */
 
 /**
