@@ -24,7 +24,7 @@ const loadTodosFromDatabase = async (): Promise<Todo[]> => {
   try {
     const result = await window.electronAPI?.todos?.getAll()
     // 正确处理API返回的对象结构：{ success: boolean, todos: Todo[] }
-    const todosArray = result?.success ? result.todos : []
+    const todosArray = result?.success ? (result.todos || []) : []
     // 将数据库格式转换为前端格式
     return todosArray.map((todo: any) => ({
       id: todo.id.toString(),
@@ -44,40 +44,10 @@ const loadTodosFromDatabase = async (): Promise<Todo[]> => {
   }
 }
 
-// 保存 todos 到数据库
-const saveTodoToDatabase = async (todo: Omit<Todo, 'id'>, id?: string) => {
-  try {
-    if (id) {
-      // 更新现有待办事项
-      await window.electronAPI?.todos?.update(id, {
-        text: todo.text,
-        completed: todo.completed ? 1 : 0
-      })
-    } else {
-      // 创建新的待办事项
-      const newId = await window.electronAPI?.todos?.create({
-        text: todo.text
-      })
-      return newId
-    }
-  } catch (error) {
-    console.error('Failed to save todo to database:', error)
-  }
-}
-
-// 更新待办事项状态
-const updateTodoStatusInDatabase = async (id: string, completed: boolean) => {
-  try {
-    await window.electronAPI?.todos?.toggle(id)
-  } catch (error) {
-    console.error('Failed to update todo status in database:', error)
-  }
-}
-
 // 删除待办事项
 const deleteTodoFromDatabase = async (id: string) => {
   try {
-    await window.electronAPI?.todos?.delete(id)
+    await window.electronAPI?.todos?.delete(parseInt(id))
   } catch (error) {
     console.error('Failed to delete todo from database:', error)
   }
@@ -142,7 +112,7 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
   
   toggleTodo: async (id) => {
     try {
-      await window.electronAPI?.todos?.toggle(id)
+      await window.electronAPI?.todos?.toggle(parseInt(id))
       const newTodos = get().todos.map((todo) =>
         todo.id === id ? { ...todo, completed: !todo.completed } : todo
       )
@@ -172,7 +142,7 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
   
   updateTodo: async (id, text) => {
     try {
-      await window.electronAPI?.todos?.update(id, { text, completed: 0 })
+      await window.electronAPI?.todos?.update(parseInt(id), { text, completed: 0 })
       const newTodos = get().todos.map((todo) =>
         todo.id === id ? { ...todo, text } : todo
       )
