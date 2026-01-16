@@ -62,19 +62,13 @@ export default function WebPages() {
   const [showCategoryManager, setShowCategoryManager] = useState(false)
   const [editingCategory, setEditingCategory] = useState<WebPageCategory | null>(null)
   const [categoryForm, setCategoryForm] = useState<WebPageCategory>({
+    id: 0,
     name: '',
     icon: 'folder',
     color: '#3B82F6',
     sort_order: 0
   })
   const [categoryWebPageCounts, setCategoryWebPageCounts] = useState<Map<number, number>>(new Map())
-
-  // 定义 electronAPI 类型
-  declare global {
-    interface Window {
-      electronAPI: any
-    }
-  }
 
   // 网页浏览器弹窗
   const [showWebBrowser, setShowWebBrowser] = useState(false)
@@ -160,7 +154,6 @@ export default function WebPages() {
 
     try {
       // 简化处理，直接标记为成功
-      const url = webPageForm.url.startsWith('http') ? webPageForm.url : `https://${webPageForm.url}`
       setTestResult({ success: true, pageInfo: { title: '网站连接成功' } })
     } catch (error) {
       setTestResult({ success: false, error: '测试失败' })
@@ -329,12 +322,6 @@ export default function WebPages() {
         // 使用 category_id 进行精确匹配
         return item.category_id === parseInt(selectedCategory)
       })
-
-  const getCategoryIcon = (categoryId: string) => {
-    const allCats = getAllCategories()
-    const category = allCats.find(c => c.id === categoryId)
-    return category ? category.icon : Globe
-  }
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp)

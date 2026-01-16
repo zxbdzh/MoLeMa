@@ -47,14 +47,14 @@ export const useRSSStore = create<RSSStore>()(
           const result = await window.electronAPI.rss.getFeeds()
           if (result.success) {
             // 处理每个feed的URL，去除前后空格
-            const processedFeeds = result.feeds.map(feed => ({
+            const processedFeeds = (result.feeds as RSSFeed[]).map((feed: RSSFeed) => ({
               ...feed,
               url: feed.url.trim()
             }))
-            
+
             // 去重处理，避免重复feed
             const uniqueFeeds = Array.from(
-              new Map(processedFeeds.map(feed => [feed.url, feed])).values()
+              new Map(processedFeeds.map((feed: RSSFeed) => [feed.url, feed])).values()
             )
             set({ feeds: uniqueFeeds })
           }

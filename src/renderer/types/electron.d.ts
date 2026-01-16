@@ -60,6 +60,7 @@ export interface ElectronAPI {
     delete: (id: number) => Promise<{ success: boolean }>
     clearCompleted: () => Promise<{ success: boolean; count?: number }>
     getStats: () => Promise<{ success: boolean; stats?: any }>
+    updateOrder: (orderedIds: number[]) => Promise<{ success: boolean }>
   }
 
   // 新闻分类 API
