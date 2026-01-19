@@ -180,7 +180,7 @@ export default function WebPages() {
   }
 
   const handleDeleteWebPage = async (id: number) => {
-    if (confirm('确定要删除这个网页吗？删除后将无法恢复。')) {
+    if (window.confirm('确定要删除这个网页吗？删除后将无法恢复。')) {
       try {
         await window.electronAPI?.webPages?.delete(id)
         await fetchWebPagesList()
@@ -253,7 +253,7 @@ export default function WebPages() {
   const handleSaveCategory = async () => {
     try {
       if (!categoryForm.name.trim()) {
-        alert('请输入分类名称')
+        window.alert('请输入分类名称')
         return
       }
 
@@ -274,7 +274,7 @@ export default function WebPages() {
       })
     } catch (error) {
       console.error('Failed to save category:', error)
-      alert('保存分类失败')
+      window.alert('保存分类失败')
     }
   }
 
@@ -283,11 +283,11 @@ export default function WebPages() {
     const webPageCount = categoryWebPageCounts.get(categoryId) || 0
 
     if (webPageCount > 0) {
-      alert(`无法删除，该分类下还有 ${webPageCount} 个网页`)
+      window.alert(`无法删除，该分类下还有 ${webPageCount} 个网页`)
       return
     }
 
-    if (confirm('确定要删除这个分类吗？删除后将无法恢复。')) {
+    if (window.confirm('确定要删除这个分类吗？删除后将无法恢复。')) {
       try {
         await window.electronAPI?.webPages?.categories?.delete(categoryId)
         await fetchCategories()
@@ -298,7 +298,7 @@ export default function WebPages() {
         }
       } catch (error) {
         console.error('Failed to delete category:', error)
-        alert('删除分类失败')
+        window.alert('删除分类失败')
       }
     }
   }

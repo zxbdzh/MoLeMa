@@ -134,6 +134,37 @@ function initializeSchema(database: Database.Database): void {
       database.exec('ALTER TABLE web_pages ADD COLUMN favicon TEXT');
       console.log('favicon column added successfully');
     }
+
+    // 检查 todo_completion_stats 表是否存在
+    const statsTableExists = database.prepare(`
+      SELECT name FROM sqlite_master
+      WHERE type='table' AND name='todo_completion_stats'
+    `).get() as { name: string } | undefined;
+
+    if (!statsTableExists) {
+      console.log('Creating todo_completion_stats table...');
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS todo_completion_stats (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          todo_id INTEGER NOT NULL,
+          completed_at INTEGER NOT NULL,
+          date_key INTEGER NOT NULL,
+          week_key INTEGER NOT NULL,
+          month_key INTEGER NOT NULL,
+          year_key INTEGER NOT NULL,
+          created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+          FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_todo_stats_date_key ON todo_completion_stats(date_key);
+        CREATE INDEX IF NOT EXISTS idx_todo_stats_week_key ON todo_completion_stats(week_key);
+        CREATE INDEX IF NOT EXISTS idx_todo_stats_month_key ON todo_completion_stats(month_key);
+        CREATE INDEX IF NOT EXISTS idx_todo_stats_year_key ON todo_completion_stats(year_key);
+        CREATE INDEX IF NOT EXISTS idx_todo_stats_todo_id ON todo_completion_stats(todo_id);
+        CREATE INDEX IF NOT EXISTS idx_todo_stats_completed_at ON todo_completion_stats(completed_at DESC);
+      `);
+      console.log('todo_completion_stats table created successfully');
+    }
   }
 }
 

@@ -67,7 +67,7 @@ export default function RSSPage() {
   }
 
   const handleRemoveFeed = (url: string) => {
-    if (confirm('确定要删除这个 RSS 源吗？')) {
+    if (window.confirm('确定要删除这个 RSS 源吗？')) {
       removeFeed(url)
     }
   }

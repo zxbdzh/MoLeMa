@@ -68,7 +68,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     delete: (id: number) => ipcRenderer.invoke('todos:delete', id),
     clearCompleted: () => ipcRenderer.invoke('todos:clearCompleted'),
     getStats: () => ipcRenderer.invoke('todos:getStats'),
-    updateOrder: (orderedIds: number[]) => ipcRenderer.invoke('todos:updateOrder', orderedIds)
+    updateOrder: (orderedIds: number[]) => ipcRenderer.invoke('todos:updateOrder', orderedIds),
+    getCompletionStats: () => ipcRenderer.invoke('todos:getCompletionStats'),
+    getPaginated: (page?: number, pageSize?: number) => ipcRenderer.invoke('todos:getPaginated', page, pageSize),
+    getPending: (page?: number, pageSize?: number) => ipcRenderer.invoke('todos:getPending', page, pageSize),
+    getCompleted: (page?: number, pageSize?: number) => ipcRenderer.invoke('todos:getCompleted', page, pageSize)
   },
 
   // 新闻分类 API

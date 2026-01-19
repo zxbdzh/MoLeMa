@@ -273,3 +273,70 @@ export function runMigration(): {
     results
   };
 }
+
+/**
+ * 获取 ISO 周数
+ */
+function getISOWeek(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+/**
+ * 迁移历史完成数据到统计表
+ * 将 todos 表中已完成的任务记录迁移到 todo_completion_stats 表
+ */
+export function migrateTodoCompletionStats(): { success: number; failed: number } {
+  console.log('Migrating todo completion stats...');
+  
+  const db = getDatabase();
+  
+  // 获取所有已完成的任务
+  const completedTodos = db.prepare(`
+    SELECT id, completed_at 
+    FROM todos 
+    WHERE completed = 1 AND completed_at IS NOT NULL
+  `).all() as any[];
+  
+  let success = 0;
+  let failed = 0;
+  
+  for (const todo of completedTodos) {
+    try {
+      const completedAt = todo.completed_at;
+      const date = new Date(completedAt);
+      
+      // 计算各种时间键
+      const dateKey = parseInt(date.getFullYear().toString() + 
+        (date.getMonth() + 1).toString().padStart(2, '0') + 
+        date.getDate().toString().padStart(2, '0'));
+      
+      // 计算周键（ISO 周数）
+      const weekKey = parseInt(date.getFullYear().toString() + 
+        getISOWeek(date).toString().padStart(2, '0'));
+      
+      const monthKey = parseInt(date.getFullYear().toString() + 
+        (date.getMonth() + 1).toString().padStart(2, '0'));
+      
+      const yearKey = date.getFullYear();
+      
+      // 插入统计记录
+      db.prepare(`
+        INSERT INTO todo_completion_stats 
+        (todo_id, completed_at, date_key, week_key, month_key, year_key, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(todo.id, completedAt, dateKey, weekKey, monthKey, yearKey, completedAt);
+      
+      success++;
+    } catch (error) {
+      console.error('Failed to migrate todo completion stat:', todo, error);
+      failed++;
+    }
+  }
+  
+  console.log(`✓ Todo completion stats migration complete: ${success} succeeded, ${failed} failed`);
+  return { success, failed };
+}

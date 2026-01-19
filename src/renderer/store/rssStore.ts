@@ -76,14 +76,14 @@ export const useRSSStore = create<RSSStore>()(
         if (window.electronAPI && window.electronAPI.rss) {
           // 去除URL前后空格
           const trimmedUrl = url.trim()
-          
+
           // 检查feed是否已存在
           const existingFeeds = get().feeds
           if (existingFeeds.some(feed => feed.url === trimmedUrl)) {
-            alert('该RSS订阅已存在，请不要重复添加！')
+            window.alert('该RSS订阅已存在，请不要重复添加！')
             return
           }
-          
+
           const result = await window.electronAPI.rss.addFeed(trimmedUrl)
           if (result.success) {
             // 确保返回的feed url也没有空格

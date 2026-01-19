@@ -9,6 +9,9 @@ import TodoList from './components/TodoList'
 import Settings from './components/Settings'
 import Notes from './components/NotesNew'
 import WebPages from './components/WebPages'
+import ConfirmDialog from './components/ConfirmDialog'
+import AlertDialog from './components/AlertDialog'
+import { ToastProvider } from './components/Toast'
 import { useRSSStore } from './store/rssStore'
 
 type TabType = 'home' | 'rss' | 'notes' | 'todo' | 'webpages' | 'settings'
@@ -19,6 +22,19 @@ function App() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
+  const [alertDialog, setAlertDialog] = useState<{
+    isOpen: boolean
+    type?: 'warning' | 'info' | 'success' | 'error'
+    title: string
+    message?: string
+    onConfirm?: () => void
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: undefined
+  })
   const { currentArticle, setCurrentArticle } = useRSSStore()
 
   // 加载主题设置
@@ -26,6 +42,48 @@ function App() {
     const savedTheme = localStorage.getItem('theme') as 'dark' | 'light' | 'system' | null
     if (savedTheme) {
       setTheme(savedTheme)
+    }
+  }, [])
+
+  // 覆盖原生 alert 和 confirm
+  useEffect(() => {
+    // 保存原始函数
+    const originalAlert = window.alert
+    const originalConfirm = window.confirm
+
+    // 覆盖 alert
+    window.alert = (message: string) => {
+      setAlertDialog({
+        isOpen: true,
+        type: 'info',
+        title: '提示',
+        message: message,
+        onConfirm: () => {
+          setAlertDialog(prev => ({ ...prev, isOpen: false }))
+        }
+      })
+    }
+
+    // 覆盖 confirm
+    window.confirm = (message: string): boolean => {
+      let result = false
+      setAlertDialog({
+        isOpen: true,
+        type: 'warning',
+        title: '确认',
+        message: message,
+        onConfirm: () => {
+          result = true
+          setAlertDialog(prev => ({ ...prev, isOpen: false }))
+        }
+      })
+      return result
+    }
+
+    // 清理函数
+    return () => {
+      window.alert = originalAlert
+      window.confirm = originalConfirm
     }
   }, [])
 
@@ -90,6 +148,24 @@ function App() {
   const handleSidebarToggle = () => {
     setSidebarCollapsed(!sidebarCollapsed)
     localStorage.setItem('sidebarCollapsed', (!sidebarCollapsed).toString())
+  }
+
+  // 处理关闭窗口
+  const handleCloseWindow = () => {
+    setShowCloseDialog(true)
+  }
+
+  // 最小化到托盘
+  const handleMinimizeToTray = () => {
+    window.electronAPI?.minimizeWindow?.()
+    setShowCloseDialog(false)
+  }
+
+  // 直接退出应用
+  const handleQuitApp = () => {
+    // 通知主进程准备退出
+    window.electronAPI?.closeWindow?.()
+    setShowCloseDialog(false)
   }
 
   // 加载快捷键配置
@@ -282,7 +358,7 @@ function App() {
                 </svg>
               </button>
               <button
-                onClick={() => window.electronAPI?.closeWindow?.()}
+                onClick={handleCloseWindow}
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-500 dark:text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
@@ -401,10 +477,42 @@ function App() {
             <ArticleReader onClose={() => setCurrentArticle(null)} />
           )}
         </AnimatePresence>
+
+        {/* 关闭确认弹窗 */}
+        <ConfirmDialog
+          isOpen={showCloseDialog}
+          title="关闭应用"
+          message="您希望如何关闭应用？"
+          detail="最小化到托盘后，应用会在后台继续运行，可通过托盘图标或快捷键快速恢复"
+          confirmText="直接退出"
+          cancelText="取消"
+          showMinimize={true}
+          onMinimize={handleMinimizeToTray}
+          onConfirm={handleQuitApp}
+          onCancel={() => setShowCloseDialog(false)}
+        />
+
+        {/* 全局 Alert/Confirm 弹窗 */}
+        <AlertDialog
+          isOpen={alertDialog.isOpen}
+          type={alertDialog.type}
+          title={alertDialog.title}
+          message={alertDialog.message}
+          showCancel={alertDialog.type === 'warning'}
+          confirmText={alertDialog.type === 'warning' ? '确定' : '确定'}
+          cancelText="取消"
+          onConfirm={() => {
+            alertDialog.onConfirm?.()
+            setAlertDialog(prev => ({ ...prev, isOpen: false }))
+          }}
+          onCancel={() => setAlertDialog(prev => ({ ...prev, isOpen: false }))}
+        />
       </motion.main>
     </div>
   )
 }
+
+
 
 function FeatureCard({
   icon,
@@ -446,4 +554,11 @@ function FeatureCard({
   )
 }
 
-export default App
+// 用 ToastProvider 包装整个应用
+export default function AppWrapper() {
+  return (
+    <ToastProvider>
+      <App />
+    </ToastProvider>
+  )
+}

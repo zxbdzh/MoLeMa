@@ -1,3 +1,11 @@
+export interface TodoCompletionStats {
+  today: number
+  thisWeek: number
+  thisMonth: number
+  thisYear: number
+  total: number
+}
+
 export interface ElectronAPI {
   // 窗口控制
   toggleWindow: () => void
@@ -61,6 +69,28 @@ export interface ElectronAPI {
     clearCompleted: () => Promise<{ success: boolean; count?: number }>
     getStats: () => Promise<{ success: boolean; stats?: any }>
     updateOrder: (orderedIds: number[]) => Promise<{ success: boolean }>
+    getCompletionStats: () => Promise<{ success: boolean; stats?: TodoCompletionStats }>
+    getPaginated: (page?: number, pageSize?: number) => Promise<{
+      success: boolean;
+      todos?: any[];
+      total?: number;
+      totalPages?: number;
+      currentPage?: number;
+    }>
+    getPending: (page?: number, pageSize?: number) => Promise<{
+      success: boolean;
+      todos?: any[];
+      total?: number;
+      totalPages?: number;
+      currentPage?: number;
+    }>
+    getCompleted: (page?: number, pageSize?: number) => Promise<{
+      success: boolean;
+      todos?: any[];
+      total?: number;
+      totalPages?: number;
+      currentPage?: number;
+    }>
   }
 
   // 新闻分类 API

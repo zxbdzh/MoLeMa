@@ -112,30 +112,12 @@ function createWindow() {
     mainWindow = null
   })
 
-  // 关闭窗口时显示确认对话框
+  // 关闭窗口时直接关闭（由前端组件处理关闭确认）
   mainWindow.on('close', (event) => {
     if (!app.isQuitting) {
       event.preventDefault()
-      
-      dialog.showMessageBox(mainWindow!, {
-        type: 'question',
-        buttons: ['最小化到托盘', '直接退出', '取消'],
-        defaultId: 0,
-        cancelId: 2,
-        title: '关闭应用',
-        message: '您希望如何关闭应用？',
-        detail: '最小化到托盘后，应用会在后台继续运行，可通过托盘图标或快捷键快速恢复'
-      }).then(({ response }) => {
-        if (response === 0) {
-          // 最小化到托盘
-          mainWindow?.hide()
-        } else if (response === 1) {
-          // 直接退出
-          app.isQuitting = true
-          app.quit()
-        }
-        // response === 2 取消，不做任何操作
-      })
+      // 直接隐藏窗口到托盘，由前端组件处理退出逻辑
+      mainWindow?.hide()
     }
   })
 }
@@ -957,6 +939,50 @@ ipcMain.handle('todos:updateOrder', (_event, orderedIds: number[]) => {
   } catch (error) {
     console.error('Failed to update todo order:', error);
     return { success: false, error: 'Failed to update todo order' };
+  }
+})
+
+// 获取完成统计信息
+ipcMain.handle('todos:getCompletionStats', () => {
+  try {
+    const stats = todosApi.getCompletionStats();
+    return { success: true, stats };
+  } catch (error) {
+    console.error('Failed to get completion stats:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+})
+
+// 获取分页的待办事项
+ipcMain.handle('todos:getPaginated', (_event, page: number = 1, pageSize: number = 10) => {
+  try {
+    const result = todosApi.getPaginatedTodos(page, pageSize);
+    return { success: true, ...result };
+  } catch (error) {
+    console.error('Failed to get paginated todos:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+})
+
+// 获取待完成的待办事项（分页）
+ipcMain.handle('todos:getPending', (_event, page: number = 1, pageSize: number = 10) => {
+  try {
+    const result = todosApi.getPendingTodos(page, pageSize);
+    return { success: true, ...result };
+  } catch (error) {
+    console.error('Failed to get pending todos:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+})
+
+// 获取已完成的待办事项（分页）
+ipcMain.handle('todos:getCompleted', (_event, page: number = 1, pageSize: number = 10) => {
+  try {
+    const result = todosApi.getCompletedTodos(page, pageSize);
+    return { success: true, ...result };
+  } catch (error) {
+    console.error('Failed to get completed todos:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 })
 
