@@ -164,7 +164,17 @@ export default function Stats() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={(entry) => (
+                      <text
+                        fill={entry.color}
+                        fontSize={12}
+                        fontWeight={500}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        {entry.name} {(entry.percent * 100).toFixed(0)}%
+                      </text>
+                    )}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
