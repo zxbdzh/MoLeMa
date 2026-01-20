@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Clock, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
-import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 type TimeDimension = 'day' | 'week' | 'month' | 'year' | 'all'
 
@@ -162,28 +162,33 @@ export default function Stats() {
                   <Pie
                     data={pieData}
                     cx="50%"
-                    cy="50%"
+                    cy="45%"
+                    outerRadius={70}
                     labelLine={false}
-                    label={(entry) => (
-                      <text
-                        fill={entry.color}
-                        fontSize={12}
-                        fontWeight={500}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        {entry.name} {(entry.percent * 100).toFixed(0)}%
-                      </text>
-                    )}
-                    outerRadius={80}
+                    label={(entry) => `${((entry.percent || 0) * 100).toFixed(0)}%`}
                     fill="#8884d8"
                     dataKey="value"
+                    labelStyle={{ fontSize: 12, fontWeight: 600, fill: '#000000' }}
                   >
                     {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => formatDuration(value)} />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={36}
+                    formatter={(value, entry) => (
+                      <span style={{ color: '#333', fontSize: 12, fontWeight: 500 }}>
+                        {value}
+                      </span>
+                    )}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#000000', border: 'none', borderRadius: '8px', padding: '12px' }}
+                    labelStyle={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                    itemStyle={{ color: '#FFFFFF', fontSize: 13 }}
+                    formatter={(value: number) => formatDuration(value)}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -202,9 +207,11 @@ export default function Stats() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="featureName" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
                   <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }}
-                    itemStyle={{ color: '#F3F4F6' }}
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#000000', border: 'none', borderRadius: '8px', padding: '12px' }}
+                    labelStyle={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                    itemStyle={{ color: '#FFFFFF', fontSize: 13 }}
+                    cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
                   />
                   <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -270,9 +277,10 @@ export default function Stats() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis dataKey="date" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
                 <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} tickFormatter={(value) => formatDuration(value)} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }}
-                  itemStyle={{ color: '#F3F4F6' }}
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#000000', border: 'none', borderRadius: '8px', padding: '12px' }}
+                  labelStyle={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
+                  itemStyle={{ color: '#FFFFFF', fontSize: 13 }}
                   formatter={(value: number) => formatDuration(value)}
                 />
                 <Area type="monotone" dataKey="duration" stroke="#3B82F6" fillOpacity={1} fill="url(#colorDuration)" />
