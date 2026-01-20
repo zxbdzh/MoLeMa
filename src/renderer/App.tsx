@@ -9,6 +9,7 @@ import TodoList from './components/TodoList'
 import Settings from './components/Settings'
 import Notes from './components/NotesNew'
 import WebPages from './components/WebPages'
+import Stats from './components/Stats'
 import ConfirmDialog from './components/ConfirmDialog'
 import AlertDialog from './components/AlertDialog'
 import { ToastProvider } from './components/Toast'
@@ -185,6 +186,35 @@ function App() {
     return unsubscribe
   }, [])
 
+  // 追踪功能使用情况
+  useEffect(() => {
+    const trackFeatureUsage = async () => {
+      // 首页不追踪
+      if (activeTab === 'home' || activeTab === 'settings') {
+        return
+      }
+
+      // 结束之前的功能使用
+      if (window.electronAPI?.stats?.endFeatureUsage) {
+        await window.electronAPI.stats.endFeatureUsage(activeTab)
+      }
+
+      // 开始新的功能使用
+      if (window.electronAPI?.stats?.startFeatureUsage) {
+        await window.electronAPI.stats.startFeatureUsage(activeTab)
+      }
+    }
+
+    trackFeatureUsage()
+
+    // 组件卸载时结束当前功能使用
+    return async () => {
+      if (activeTab !== 'home' && activeTab !== 'settings' && window.electronAPI?.stats?.endFeatureUsage) {
+        await window.electronAPI.stats.endFeatureUsage(activeTab)
+      }
+    }
+  }, [activeTab])
+
   const tabs = [
     { id: 'home' as TabType, icon: <Home className="w-5 h-5" />, label: '首页' },
     { id: 'rss' as TabType, icon: <Rss className="w-5 h-5" />, label: 'RSS 订阅' },
@@ -230,8 +260,15 @@ function App() {
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
                   className="font-bold font-heading dark:text-white text-slate-900 tracking-tight whitespace-nowrap"
+                  style={{ 
+                    fontSize: '16px', 
+                    lineHeight: '1',
+                    display: 'inline-block',
+                    verticalAlign: 'middle',
+                    height: '20px'
+                  }}
                 >
-                  摸鱼
+                  摸了吗
                 </motion.span>
               </motion.div>
             )}
@@ -407,16 +444,16 @@ function App() {
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5 }}
-                  className="max-w-5xl mx-auto"
+                  className="max-w-7xl mx-auto"
                 >
-                  <div className="text-center mb-12">
+                  <div className="text-center mb-8">
                     <motion.h2 
                       initial={{ opacity: 0, y: -20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: 0.1 }}
                       className="text-4xl font-bold font-heading mb-4 dark:text-white text-slate-900"
                     >
-                      欢迎使用摸鱼
+                      欢迎使用摸了吗
                     </motion.h2>
                     <motion.p 
                       initial={{ opacity: 0, y: -20 }}
@@ -427,38 +464,7 @@ function App() {
                       使用快捷键 <kbd className="px-2 py-1 bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md text-sm mx-1 font-mono font-medium">{shortcuts.toggleWindow}</kbd> 快速显示/隐藏窗口
                     </motion.p>
                   </div>
-
-                  {/* 功能卡片 */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FeatureCard
-                      icon={<Rss className="w-7 h-7 text-blue-400" />}
-                      title="RSS 订阅"
-                      description="订阅技术博客，实时获取最新文章"
-                      onClick={() => setActiveTab('rss')}
-                      index={0}
-                    />
-                    <FeatureCard
-                      icon={<FileText className="w-7 h-7 text-purple-400" />}
-                      title="记事本"
-                      description="记录想法，支持 Markdown"
-                      onClick={() => setActiveTab('notes')}
-                      index={1}
-                    />
-                    <FeatureCard
-                      icon={<CheckSquare className="w-7 h-7 text-green-400" />}
-                      title="待办清单"
-                      description="管理任务和待办事项"
-                      onClick={() => setActiveTab('todo')}
-                      index={2}
-                    />
-                    <FeatureCard
-                      icon={<Link className="w-7 h-7 text-orange-400" />}
-                      title="网页收藏"
-                      description="收藏和快速访问喜欢的网站"
-                      onClick={() => setActiveTab('webpages')}
-                      index={3}
-                    />
-                  </div>
+                  <Stats />
                 </motion.div>
               )}
 

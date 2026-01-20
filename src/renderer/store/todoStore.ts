@@ -78,7 +78,7 @@ const loadTodosFromDatabase = async (): Promise<Todo[]> => {
     // 返回初始示例数据
     return [
       { id: '1', text: '学习 React 和 TypeScript', completed: false, createdAt: Date.now() },
-      { id: '2', text: '完成摸鱼软件项目', completed: false, createdAt: Date.now() },
+      { id: '2', text: '完成摸了吗软件项目', completed: false, createdAt: Date.now() },
       { id: '3', text: '阅读技术文章', completed: true, createdAt: Date.now() }
     ]
   }

@@ -305,6 +305,52 @@ function getSchemaSQL(): string {
     );
 
     CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key);
+
+    -- 应用使用统计表
+    CREATE TABLE IF NOT EXISTS app_usage_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL,
+      started_at INTEGER NOT NULL,
+      ended_at INTEGER,
+      duration INTEGER NOT NULL DEFAULT 0,
+      date_key INTEGER NOT NULL,
+      week_key INTEGER NOT NULL,
+      month_key INTEGER NOT NULL,
+      year_key INTEGER NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+      updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_app_usage_date_key ON app_usage_stats(date_key);
+    CREATE INDEX IF NOT EXISTS idx_app_usage_week_key ON app_usage_stats(week_key);
+    CREATE INDEX IF NOT EXISTS idx_app_usage_month_key ON app_usage_stats(month_key);
+    CREATE INDEX IF NOT EXISTS idx_app_usage_year_key ON app_usage_stats(year_key);
+    CREATE INDEX IF NOT EXISTS idx_app_usage_session_id ON app_usage_stats(session_id);
+    CREATE INDEX IF NOT EXISTS idx_app_usage_started_at ON app_usage_stats(started_at DESC);
+
+    -- 功能使用统计表
+    CREATE TABLE IF NOT EXISTS feature_usage_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      feature_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      started_at INTEGER NOT NULL,
+      ended_at INTEGER,
+      duration INTEGER NOT NULL DEFAULT 0,
+      date_key INTEGER NOT NULL,
+      week_key INTEGER NOT NULL,
+      month_key INTEGER NOT NULL,
+      year_key INTEGER NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+      updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_feature_usage_feature_id ON feature_usage_stats(feature_id);
+    CREATE INDEX IF NOT EXISTS idx_feature_usage_session_id ON feature_usage_stats(session_id);
+    CREATE INDEX IF NOT EXISTS idx_feature_usage_date_key ON feature_usage_stats(date_key);
+    CREATE INDEX IF NOT EXISTS idx_feature_usage_week_key ON feature_usage_stats(week_key);
+    CREATE INDEX IF NOT EXISTS idx_feature_usage_month_key ON feature_usage_stats(month_key);
+    CREATE INDEX IF NOT EXISTS idx_feature_usage_year_key ON feature_usage_stats(year_key);
+    CREATE INDEX IF NOT EXISTS idx_feature_usage_started_at ON feature_usage_stats(started_at DESC);
   `;
 }
 

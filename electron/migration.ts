@@ -340,3 +340,113 @@ export function migrateTodoCompletionStats(): { success: number; failed: number 
   console.log(`✓ Todo completion stats migration complete: ${success} succeeded, ${failed} failed`);
   return { success, failed };
 }
+
+/**
+ * 创建使用统计表
+ * 创建 app_usage_stats 和 feature_usage_stats 表
+ */
+export function createUsageStatsTables(): { success: boolean; error?: string } {
+  console.log('Creating usage stats tables...');
+  
+  const db = getDatabase();
+  
+  try {
+    // 创建应用使用统计表
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS app_usage_stats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        ended_at INTEGER,
+        duration INTEGER NOT NULL DEFAULT 0,
+        date_key INTEGER NOT NULL,
+        week_key INTEGER NOT NULL,
+        month_key INTEGER NOT NULL,
+        year_key INTEGER NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+      )
+    `).run();
+    
+    // 创建索引
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_app_usage_stats_session 
+      ON app_usage_stats(session_id)
+    `).run();
+    
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_app_usage_stats_date 
+      ON app_usage_stats(date_key)
+    `).run();
+    
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_app_usage_stats_week 
+      ON app_usage_stats(week_key)
+    `).run();
+    
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_app_usage_stats_month 
+      ON app_usage_stats(month_key)
+    `).run();
+    
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_app_usage_stats_year 
+      ON app_usage_stats(year_key)
+    `).run();
+    
+    // 创建功能使用统计表
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS feature_usage_stats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        feature_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        ended_at INTEGER,
+        duration INTEGER NOT NULL DEFAULT 0,
+        date_key INTEGER NOT NULL,
+        week_key INTEGER NOT NULL,
+        month_key INTEGER NOT NULL,
+        year_key INTEGER NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+      )
+    `).run();
+    
+    // 创建索引
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_feature_usage_stats_feature 
+      ON feature_usage_stats(feature_id)
+    `).run();
+    
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_feature_usage_stats_session 
+      ON feature_usage_stats(session_id)
+    `).run();
+    
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_feature_usage_stats_date 
+      ON feature_usage_stats(date_key)
+    `).run();
+    
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_feature_usage_stats_week 
+      ON feature_usage_stats(week_key)
+    `).run();
+    
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_feature_usage_stats_month 
+      ON feature_usage_stats(month_key)
+    `).run();
+    
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_feature_usage_stats_year 
+      ON feature_usage_stats(year_key)
+    `).run();
+    
+    console.log('✓ Usage stats tables created successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('✗ Failed to create usage stats tables:', error);
+    return { success: false, error: String(error) };
+  }
+}

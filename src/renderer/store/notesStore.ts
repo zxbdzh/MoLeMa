@@ -24,7 +24,7 @@ const loadNotesFromStore = async (): Promise<Note[]> => {
     return result?.value || [
       {
         id: '1',
-        title: '欢迎使用摸鱼软件',
+        title: '欢迎使用摸了吗软件',
         content: '# 欢迎使用\n\n这是一个示例笔记，支持 **Markdown** 语法。\n\n## 功能特点\n\n- 快速记录\n- 支持 Markdown\n- 炫酷动画\n\n开始使用吧！',
         createdAt: Date.now(),
         updatedAt: Date.now()
@@ -35,7 +35,7 @@ const loadNotesFromStore = async (): Promise<Note[]> => {
     return [
       {
         id: '1',
-        title: '欢迎使用摸鱼软件',
+        title: '欢迎使用摸了吗软件',
         content: '# 欢迎使用\n\n这是一个示例笔记，支持 **Markdown** 语法。\n\n## 功能特点\n\n- 快速记录\n- 支持 Markdown\n- 炫酷动画\n\n开始使用吧！',
         createdAt: Date.now(),
         updatedAt: Date.now()

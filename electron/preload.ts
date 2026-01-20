@@ -182,6 +182,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setBounds: (id: string, bounds: Electron.Rectangle) => ipcRenderer.invoke('browserView:setBounds', id, bounds),
     destroy: (id: string) => ipcRenderer.invoke('browserView:destroy', id),
     executeJavaScript: (id: string, code: string) => ipcRenderer.invoke('browserView:executeJavaScript', id, code)
+  },
+
+  // 统计 API
+  stats: {
+    startFeatureUsage: (featureId: string) => ipcRenderer.invoke('stats:startFeatureUsage', featureId),
+    endFeatureUsage: (featureId: string) => ipcRenderer.invoke('stats:endFeatureUsage', featureId),
+    getAppUsage: (dimension?: string) => ipcRenderer.invoke('stats:getAppUsage', dimension),
+    getFeatureUsage: (featureId?: string, dimension?: string) => ipcRenderer.invoke('stats:getFeatureUsage', featureId, dimension),
+    getHistoryTrend: (dimension?: string, days?: number) => ipcRenderer.invoke('stats:getHistoryTrend', dimension, days)
   }
 })
 

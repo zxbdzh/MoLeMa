@@ -13,11 +13,12 @@ declare global {
   }
 }
 import { getDatabase, closeDatabase, seedDefaultData, getCurrentDatabasePath, setCustomDatabaseDirectory, setCustomDatabasePath, migrateDatabaseToNewPath, getProxy, setProxy, getProxyConfig } from './database'
-import { runMigration } from './migration'
+import { runMigration, createUsageStatsTables } from './migration'
 import { notesApi } from './api/notesApi'
 import { todosApi } from './api/todosApi'
 import { newsApi } from './api/newsApi'
 import { webPagesApi } from './api/webPagesApi'
+import { usageStatsApi } from './api/usageStatsApi'
 import { testRSSFeed } from './services/rssFetcher'
 import { testWebsiteNews } from './services/websiteNewsFetcher'
 
@@ -26,6 +27,12 @@ let tray: Tray | null = null
 
 // 窗口显示/隐藏状态
 let isWindowVisible = false
+
+// 统计相关变量
+let currentSessionId: string | null = null
+let sessionStartTime: number | null = null
+let currentFeatureId: string | null = null
+let featureStartTime: number | null = null
 
 // Store 类型定义
 interface StoreData {
@@ -146,7 +153,11 @@ function createTray() {
     {
       label: '关于',
       click: () => {
-        mainWindow?.show()
+        if (mainWindow && !mainWindow.isVisible()) {
+          toggleWindow()
+        } else {
+          mainWindow?.show()
+        }
       }
     },
     { type: 'separator' },
@@ -159,7 +170,7 @@ function createTray() {
     }
   ])
 
-  tray.setToolTip('摸鱼软件')
+  tray.setToolTip('摸了吗软件')
   tray.setContextMenu(contextMenu)
 
   // 双击托盘图标显示/隐藏窗口
@@ -168,13 +179,92 @@ function createTray() {
   })
 }
 
+// ==================== 统计辅助函数 ====================
+
+/**
+ * 生成唯一的会话ID
+ */
+function generateSessionId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
+
+/**
+ * 开始新会话
+ */
+function startNewSession(): void {
+  // 如果已经有活跃会话，不重复创建
+  if (currentSessionId) {
+    console.log('Session already active:', currentSessionId)
+    return
+  }
+  
+  currentSessionId = generateSessionId()
+  sessionStartTime = Date.now()
+  usageStatsApi.startSession(currentSessionId)
+  console.log('Session started:', currentSessionId)
+}
+
+/**
+ * 结束当前会话
+ */
+function endCurrentSession(): void {
+  if (currentSessionId) {
+    // 结束当前功能使用（如果有）
+    if (currentFeatureId) {
+      usageStatsApi.endFeatureUsage(currentFeatureId)
+      currentFeatureId = null
+      featureStartTime = null
+    }
+    
+    // 结束会话
+    usageStatsApi.endSession(currentSessionId)
+    console.log('Session ended:', currentSessionId)
+    currentSessionId = null
+    sessionStartTime = null
+  }
+}
+
+/**
+ * 开始功能使用
+ */
+function startFeatureUsage(featureId: string): void {
+  // 结束上一个功能的记录
+  if (currentFeatureId && currentFeatureId !== featureId) {
+    usageStatsApi.endFeatureUsage(currentFeatureId)
+  }
+  
+  currentFeatureId = featureId
+  featureStartTime = Date.now()
+  
+  if (currentSessionId) {
+    usageStatsApi.startFeatureUsage(currentSessionId, featureId)
+    console.log('Feature usage started:', featureId)
+  }
+}
+
+/**
+ * 结束功能使用
+ */
+function endFeatureUsage(featureId: string): void {
+  if (currentFeatureId === featureId) {
+    usageStatsApi.endFeatureUsage(featureId)
+    currentFeatureId = null
+    featureStartTime = null
+    console.log('Feature usage ended:', featureId)
+  }
+}
+
 // 切换窗口显示/隐藏
 function toggleWindow() {
   if (mainWindow) {
     if (mainWindow.isVisible()) {
+      // 窗口隐藏，结束当前会话
+      endCurrentSession()
       mainWindow.hide()
       isWindowVisible = false
     } else {
+      // 窗口显示，开始新会话
+      startNewSession()
       mainWindow.show()
       mainWindow.focus()
       isWindowVisible = true
@@ -203,6 +293,9 @@ app.whenReady().then(() => {
   
   // 运行数据迁移（从 JSON 到 SQLite）
   runMigration()
+  
+  // 创建使用统计表
+  createUsageStatsTables()
   
   // 创建专门用于 webview 的 session
   const webviewSession = session.fromPartition('persist:webview')
@@ -236,6 +329,9 @@ app.whenReady().then(() => {
 
 // 应用退出前清理
 app.on('will-quit', () => {
+  // 结束当前会话
+  endCurrentSession()
+  
   // 注销所有全局快捷键
   globalShortcut.unregisterAll()
   
@@ -1831,6 +1927,63 @@ ipcMain.handle('browserView:getURL', async (_event, id: string) => {
     return { success: false, error: error instanceof Error ? error.message : 'Failed to get URL' };
   }
 });
+
+// ==================== 统计相关 IPC 处理程序 ====================
+
+// 开始功能使用
+ipcMain.handle('stats:startFeatureUsage', (_event, featureId: string) => {
+  try {
+    startFeatureUsage(featureId)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to start feature usage:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to start feature usage' }
+  }
+})
+
+// 结束功能使用
+ipcMain.handle('stats:endFeatureUsage', (_event, featureId: string) => {
+  try {
+    endFeatureUsage(featureId)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to end feature usage:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to end feature usage' }
+  }
+})
+
+// 获取应用使用统计
+ipcMain.handle('stats:getAppUsage', (_event, dimension: string = 'all') => {
+  try {
+    const stats = usageStatsApi.getAppUsage(dimension)
+    return { success: true, stats }
+  } catch (error) {
+    console.error('Failed to get app usage stats:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to get app usage stats' }
+  }
+})
+
+// 获取功能使用统计
+ipcMain.handle('stats:getFeatureUsage', (_event, featureId?: string, dimension: string = 'all') => {
+  try {
+    const stats = usageStatsApi.getFeatureUsage(featureId, dimension)
+    return { success: true, stats }
+  } catch (error) {
+    console.error('Failed to get feature usage stats:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to get feature usage stats' }
+  }
+})
+
+// 获取历史趋势数据
+ipcMain.handle('stats:getHistoryTrend', (_event, dimension: string = 'day', days: number = 30) => {
+  try {
+    const data = usageStatsApi.getHistoryTrend(dimension, days)
+    return { success: true, data }
+  } catch (error) {
+    console.error('Failed to get history trend:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to get history trend' }
+  }
+})
 
 // 获取 BrowserView 的标题
 ipcMain.handle('browserView:getTitle', async (_event, id: string) => {

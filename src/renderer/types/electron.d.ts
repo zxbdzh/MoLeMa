@@ -172,6 +172,46 @@ export interface ElectronAPI {
     test: (url: string) => Promise<{ success: boolean; message?: string; error?: string }>
   }
 
+  // 统计 API
+  stats: {
+    startFeatureUsage: (featureId: string) => Promise<{ success: boolean }>
+    endFeatureUsage: (featureId: string) => Promise<{ success: boolean }>
+    getAppUsage: (dimension?: string) => Promise<{
+      success: boolean
+      stats?: {
+        today: number
+        thisWeek: number
+        thisMonth: number
+        thisYear: number
+        total: number
+        sessions: number
+      }
+    }>
+    getFeatureUsage: (featureId?: string, dimension?: string) => Promise<{
+      success: boolean
+      stats?: Array<{
+        featureId: string
+        featureName: string
+        duration: number
+        count: number
+        todayDuration: number
+        todayCount: number
+        thisWeekDuration: number
+        thisWeekCount: number
+        thisMonthDuration: number
+        thisMonthCount: number
+      }>
+    }>
+    getHistoryTrend: (dimension?: string, days?: number) => Promise<{
+      success: boolean
+      data?: Array<{
+        date: string
+        duration: number
+        sessions: number
+      }>
+    }>
+  }
+
   // 平台信息
   platform: string
 
