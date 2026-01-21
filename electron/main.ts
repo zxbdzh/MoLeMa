@@ -132,13 +132,18 @@ function createWindow() {
         mainWindow = null
     })
 
-    // 关闭窗口时直接关闭（由前端组件处理关闭确认）
-    mainWindow.on('close', (event) => {
+    // 关闭窗口时真正退出程序
+    mainWindow.on('close', () => {
         if (!app.isQuitting) {
-            event.preventDefault()
-            // 直接隐藏窗口到托盘，由前端组件处理退出逻辑
-            mainWindow?.hide()
+            app.isQuitting = true
+            app.quit()
         }
+    })
+
+    // 最小化窗口时隐藏到托盘
+    mainWindow.on('minimize', (event) => {
+        event.preventDefault()
+        mainWindow?.hide()
     })
 }
 
