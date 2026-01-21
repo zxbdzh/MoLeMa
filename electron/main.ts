@@ -106,7 +106,7 @@ function createWindow() {
             allowRunningInsecureContent: false,
             allowDisplayingInsecureContent: false
         },
-        icon: path.join(__dirname, '../../resources/icon.png')
+        icon: path.join(__dirname, '../../build/icon.png')
     })
 
     // 开发模式下加载 Vite 开发服务器
@@ -149,8 +149,8 @@ function createWindow() {
 
 // 创建系统托盘
 function createTray() {
-    // 创建托盘图标（使用简单的 SVG 图标）
-    const iconPath = path.join(__dirname, '../../resources/icon.png')
+    // 创建托盘图标
+    const iconPath = path.join(__dirname, '../../build/icon.png')
     try {
         tray = new Tray(iconPath)
     } catch (error) {
