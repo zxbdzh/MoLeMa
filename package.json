@@ -11,7 +11,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder",
+    "dist": "electron-vite build & electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "generate-icons": "electron-icon-builder --input=icons/icon.png --output=build --flatten"
   },
@@ -25,12 +25,12 @@
     "files": [
       "out/**/*",
       "package.json",
-      "build/icon.ico"
+      "build/**/*"
     ],
     "asar": true,
     "asarUnpack": [
       "node_modules/better-sqlite3/**/*",
-      "build/icon.ico"
+      "build/**/*"
     ],
     "win": {
       "icon": "build/icon.ico",
@@ -43,7 +43,7 @@
           ]
         }
       ],
-      "signAndEditExecutable": false,
+      "signAndEditExecutable": true,
       "verifyUpdateCodeSignature": false,
       "forceCodeSigning": false
     },
