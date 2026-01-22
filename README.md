@@ -4,7 +4,7 @@
 
 **🎯 专为程序员打造的摸鱼神器**
 
-[![Version](https://img.shields.io/badge/version-0.0.1-blue)](https://github.com/zxbdzh/moyu)
+[![Version](https://img.shields.io/badge/version-0.0.1-blue)](https://github.com/zxbdzh/MoLeMa)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Electron](https://img.shields.io/badge/Electron-39.2.7-9FEAF9)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18.3.1-61DAFB)](https://reactjs.org/)
@@ -73,14 +73,14 @@
 
 ### 方式一：下载安装包
 
-从 [Releases](https://github.com/zxbdzh/moyu/releases) 页面下载最新版本的安装包，双击安装即可。
+从 [Releases](https://github.com/zxbdzh/MoLeMa/releases) 页面下载最新版本的安装包，双击安装即可。
 
 ### 方式二：从源码运行
 
 ```bash
 # 克隆项目
-git clone https://github.com/zxbdzh/moyu.git
-cd moyu
+git clone https://github.com/zxbdzh/MoLeMa.git
+cd MoLeMa
 
 # 安装依赖
 pnpm install
@@ -192,7 +192,7 @@ pnpm dist
 ## 📁 项目结构
 
 ```
-moyu/
+MoLeMa/
 ├── electron/                 # Electron 主进程代码
 │   ├── main.ts              # 主进程入口
 │   ├── preload.ts           # 预加载脚本
