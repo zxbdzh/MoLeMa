@@ -228,7 +228,7 @@ function App() {
     <div className={`${theme === 'dark' ? 'dark' : 'light'} min-h-screen bg-slate-950 dark:bg-slate-950 bg-slate-100 text-slate-900 dark:text-white relative overflow-hidden flex`}>
       {/* 星空背景 */}
       <StarBackground />
-      
+
       {/* 左侧可折叠侧边栏 */}
       <motion.aside
         initial={false}
@@ -247,21 +247,19 @@ function App() {
                 transition={{ duration: 0.2 }}
                 className="flex items-center gap-2 overflow-hidden"
               >
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                    <path d="M2 17l10 5 10-5" />
-                    <path d="M2 12l10 5 10-5" />
-                  </svg>
-                </div>
+                <img
+                  src="/icon.png"
+                  alt="摸了吗"
+                  className="w-8 h-8 rounded-lg flex-shrink-0"
+                />
                 <motion.span
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
                   className="font-bold font-heading dark:text-white text-slate-900 tracking-tight whitespace-nowrap"
-                  style={{ 
-                    fontSize: '16px', 
+                  style={{
+                    fontSize: '16px',
                     lineHeight: '1',
                     display: 'inline-block',
                     verticalAlign: 'middle',
@@ -420,7 +418,7 @@ function App() {
           style={{ WebkitAppRegion: 'drag' } as any}
           className="h-14 px-6 flex items-center border-b border-slate-800 dark:border-slate-800 border-slate-200 bg-white dark:bg-slate-900"
         >
-          <h1 
+          <h1
             style={{ WebkitAppRegion: 'no-drag' } as any}
             className="text-lg font-bold font-heading dark:text-white text-slate-900 select-none"
           >
@@ -440,14 +438,14 @@ function App() {
               className="p-6"
             >
               {activeTab === 'home' && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5 }}
                   className="max-w-7xl mx-auto"
                 >
                   <div className="text-center mb-8">
-                    <motion.h2 
+                    <motion.h2
                       initial={{ opacity: 0, y: -20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: 0.1 }}
@@ -455,7 +453,7 @@ function App() {
                     >
                       欢迎使用摸了吗
                     </motion.h2>
-                    <motion.p 
+                    <motion.p
                       initial={{ opacity: 0, y: -20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: 0.2 }}
@@ -538,15 +536,15 @@ function FeatureCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
-      whileHover={{ 
-        y: -5, 
-        boxShadow: "0 20px 40px -10px rgba(0,0,0,0.3)" 
+      whileHover={{
+        y: -5,
+        boxShadow: "0 20px 40px -10px rgba(0,0,0,0.3)"
       }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-blue-300 dark:hover:border-slate-600 transition-all duration-300 cursor-pointer group relative overflow-hidden"
     >
-      
+
       <div className="relative z-10 mb-3">{icon}</div>
       <h3 className="relative z-10 text-lg font-bold font-heading mb-2 dark:text-white text-slate-900 group-hover:text-blue-600 transition-colors duration-200">{title}</h3>
       <p className="relative z-10 text-slate-400 dark:text-slate-400 text-slate-600 text-sm leading-relaxed">{description}</p>

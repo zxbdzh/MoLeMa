@@ -88,13 +88,21 @@ const saveRSSFeeds = (feeds: Record<string, any>) => {
 }
 
 function createWindow() {
+    // 获取图标路径 - 在开发和生产环境下都能正确加载
+    const iconPath = process.env.NODE_ENV === 'development'
+        ? path.join(__dirname, '../../build/icon.png')
+        : path.join(process.resourcesPath, 'build/icon.png')
+
+    // 开发模式下显示边框以便查看左上角图标，生产模式下无边框
+    const isDev = process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL
+
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
         minWidth: 800,
         minHeight: 600,
         show: false,
-        frame: false,
+        frame: false, // 始终无边框
         transparent: false,
         backgroundColor: '#0f172a',
         webPreferences: {
@@ -106,7 +114,7 @@ function createWindow() {
             allowRunningInsecureContent: false,
             allowDisplayingInsecureContent: false
         },
-        icon: path.join(__dirname, '../../build/icon.png')
+        icon: iconPath
     })
 
     // 开发模式下加载 Vite 开发服务器
@@ -149,8 +157,11 @@ function createWindow() {
 
 // 创建系统托盘
 function createTray() {
-    // 创建托盘图标
-    const iconPath = path.join(__dirname, '../../build/icon.png')
+    // 创建托盘图标 - 在开发和生产环境下都能正确加载
+    const iconPath = process.env.NODE_ENV === 'development'
+        ? path.join(__dirname, '../../build/icon.png')
+        : path.join(process.resourcesPath, 'build/icon.png')
+
     try {
         tray = new Tray(iconPath)
     } catch (error) {
