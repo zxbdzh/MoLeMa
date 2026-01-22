@@ -365,3 +365,6 @@ pnpm pack
 Made with ❤️ by zxb
 
 </div>
+
+## 星标历史
+[![Star History Chart](https://api.star-history.com/svg?repos=zxbdzh/MoLeMa&type=date&legend=top-left)](https://www.star-history.com/#zxbdzh/MoLeMa&type=date&legend=top-left)
