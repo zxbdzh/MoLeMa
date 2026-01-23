@@ -289,6 +289,27 @@ export interface ElectronAPI {
     onFocusChanged: (callback: (isFocused: boolean) => void) => () => void;
   };
 
+  // 自动更新 API
+  updater: {
+    checkForUpdates: () => Promise<{
+      success: boolean;
+      error?: string;
+    }>;
+    downloadUpdate: () => Promise<{
+      success: boolean;
+      error?: string;
+    }>;
+    quitAndInstall: () => Promise<{
+      success: boolean;
+      error?: string;
+    }>;
+    onAvailable: (callback: (info: { version: string; releaseNotes: string }) => void) => () => void;
+    onNotAvailable: (callback: (info?: { version: string }) => void) => () => void;
+    onError: (callback: (error: { message: string }) => void) => () => void;
+    onProgress: (callback: (progress: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => void) => () => void;
+    onDownloaded: (callback: (info: { version: string }) => void) => () => void;
+  };
+
   // 平台信息
   platform: string;
 

@@ -239,6 +239,38 @@ contextBridge.exposeInMainWorld("electronAPI", {
       return () => ipcRenderer.removeListener("window:focus-changed", listener);
     },
   },
+
+  // 自动更新 API
+  updater: {
+    checkForUpdates: () => ipcRenderer.invoke("updater:checkForUpdates"),
+    downloadUpdate: () => ipcRenderer.invoke("updater:downloadUpdate"),
+    quitAndInstall: () => ipcRenderer.invoke("updater:quitAndInstall"),
+    onAvailable: (callback: (info: { version: string; releaseNotes: string }) => void) => {
+      const listener = (_event: any, info: any) => callback(info);
+      ipcRenderer.on("update:available", listener);
+      return () => ipcRenderer.removeListener("update:available", listener);
+    },
+    onNotAvailable: (callback: (info: { version: string }) => void) => {
+      const listener = (_event: any, info: any) => callback(info);
+      ipcRenderer.on("update:not-available", listener);
+      return () => ipcRenderer.removeListener("update:not-available", listener);
+    },
+    onError: (callback: (error: { message: string }) => void) => {
+      const listener = (_event: any, error: any) => callback(error);
+      ipcRenderer.on("update:error", listener);
+      return () => ipcRenderer.removeListener("update:error", listener);
+    },
+    onProgress: (callback: (progress: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => void) => {
+      const listener = (_event: any, progress: any) => callback(progress);
+      ipcRenderer.on("update:progress", listener);
+      return () => ipcRenderer.removeListener("update:progress", listener);
+    },
+    onDownloaded: (callback: (info: { version: string }) => void) => {
+      const listener = (_event: any, info: any) => callback(info);
+      ipcRenderer.on("update:downloaded", listener);
+      return () => ipcRenderer.removeListener("update:downloaded", listener);
+    },
+  },
 });
 
 // 类型声明（仅用于开发时的类型提示，不会被编译到最终代码中）

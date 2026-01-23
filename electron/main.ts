@@ -10,11 +10,15 @@ import {
   dialog,
   session,
 } from "electron";
-import { autoUpdater } from "electron-updater";
+import pkg from 'electron-updater';
+const { autoUpdater } = pkg;
 import path from "node:path";
 import fs from "node:fs";
 import Parser from "rss-parser";
 import Store from "electron-store";
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const packageJson = require('../../package.json');
 
 // 扩展 Electron.App 类型
 declare global {
@@ -485,6 +489,9 @@ function setupAutoUpdater() {
 // ==================== 应用启动 ====================
 
 app.whenReady().then(() => {
+  // 设置应用版本信息
+  process.versions.app = packageJson.version;
+
   // 初始化数据库
   const db = getDatabase();
   seedDefaultData(db);
