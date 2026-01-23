@@ -23,7 +23,7 @@
     "publish": {
       "provider": "github",
       "owner": "zxbdzh",
-      "repo": "moyu",
+      "repo": "MoLeMa",
       "token": "${GH_TOKEN}",
       "releaseType": "release"
     },
