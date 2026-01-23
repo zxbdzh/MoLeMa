@@ -631,39 +631,39 @@ function App() {
             <ArticleReader onClose={() => setCurrentArticle(null)} />
           )}
         </AnimatePresence>
-
-        {/* 关闭确认弹窗 */}
-        <ConfirmDialog
-          isOpen={showCloseDialog}
-          title="关闭应用"
-          message="您希望如何关闭应用？"
-          detail="最小化到托盘后，应用会在后台继续运行，可通过托盘图标或快捷键快速恢复"
-          confirmText="直接退出"
-          cancelText="取消"
-          showMinimize={true}
-          onMinimize={handleMinimizeToTray}
-          onConfirm={handleQuitApp}
-          onCancel={() => setShowCloseDialog(false)}
-        />
-
-        {/* 全局 Alert/Confirm 弹窗 */}
-        <AlertDialog
-          isOpen={alertDialog.isOpen}
-          type={alertDialog.type}
-          title={alertDialog.title}
-          message={alertDialog.message}
-          showCancel={alertDialog.type === "warning"}
-          confirmText={alertDialog.type === "warning" ? "确定" : "确定"}
-          cancelText="取消"
-          onConfirm={() => {
-            alertDialog.onConfirm?.();
-            setAlertDialog((prev) => ({ ...prev, isOpen: false }));
-          }}
-          onCancel={() =>
-            setAlertDialog((prev) => ({ ...prev, isOpen: false }))
-          }
-        />
       </motion.main>
+
+      {/* 关闭确认弹窗 */}
+      <ConfirmDialog
+        isOpen={showCloseDialog}
+        title="关闭应用"
+        message="您希望如何关闭应用？"
+        detail="最小化到托盘后，应用会在后台继续运行，可通过托盘图标或快捷键快速恢复"
+        confirmText="直接退出"
+        cancelText="取消"
+        showMinimize={true}
+        onMinimize={handleMinimizeToTray}
+        onConfirm={handleQuitApp}
+        onCancel={() => setShowCloseDialog(false)}
+      />
+
+      {/* 全局 Alert/Confirm 弹窗 */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        type={alertDialog.type}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        showCancel={alertDialog.type === "warning"}
+        confirmText={alertDialog.type === "warning" ? "确定" : "确定"}
+        cancelText="取消"
+        onConfirm={() => {
+          alertDialog.onConfirm?.();
+          setAlertDialog((prev) => ({ ...prev, isOpen: false }));
+        }}
+        onCancel={() =>
+          setAlertDialog((prev) => ({ ...prev, isOpen: false }))
+        }
+      />
     </div>
   );
 }
