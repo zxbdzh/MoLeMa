@@ -11,13 +11,22 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "pack": "electron-builder --dir",
-    "dist": "electron-vite build & electron-builder",
+    "dist": "electron-vite build & electron-builder --publish always",
+    "build:win": "pnpm run build && electron-builder --win --config --publish always",
+    "build:mac": "pnpm run build && electron-builder --mac --config --publish always",
     "postinstall": "electron-builder install-app-deps",
     "generate-icons": "electron-icon-builder --input=icons/icon.png --output=build --flatten"
   },
   "build": {
     "appId": "com.moyu.app",
     "productName": "摸了吗",
+    "publish": {
+      "provider": "github",
+      "owner": "zxbdzh",
+      "repo": "moyu",
+      "token": "${GH_TOKEN}",
+      "releaseType": "release"
+    },
     "directories": {
       "output": "release/${version}",
       "buildResources": "build"
@@ -78,6 +87,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.7.3",
     "framer-motion": "^12.24.10",
     "gsap": "^3.14.2",
     "https-proxy-agent": "^7.0.6",
