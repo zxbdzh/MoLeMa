@@ -271,6 +271,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
       return () => ipcRenderer.removeListener("update:downloaded", listener);
     },
   },
+
+  // 自动更新设置 API
+  autoUpdate: {
+    getEnabled: () => ipcRenderer.invoke("autoUpdate:getEnabled"),
+    setEnabled: (enabled: boolean) => ipcRenderer.invoke("autoUpdate:setEnabled", enabled),
+  },
 });
 
 // 类型声明（仅用于开发时的类型提示，不会被编译到最终代码中）

@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Link,
 } from "lucide-react";
+import iconPng from './assets/icon.png'; // 导入图标文件
 import Tooltip from "./components/Tooltip";
 import RSSPage from "./components/RSSPage";
 import ArticleReader from "./components/ArticleReader";
@@ -368,7 +369,7 @@ function App() {
                 className="flex items-center gap-2 overflow-hidden"
               >
                 <img
-                  src="/icon.png"
+                  src={iconPng}
                   alt="摸了吗"
                   className="w-8 h-8 rounded-lg flex-shrink-0"
                 />

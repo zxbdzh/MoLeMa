@@ -108,10 +108,28 @@ const saveRSSFeeds = (feeds: Record<string, any>) => {
 
 function createWindow() {
   // 获取图标路径 - 在开发和生产环境下都能正确加载
-  const iconPath =
-    process.env.NODE_ENV === "development"
-      ? path.join(__dirname, "../../build/icon.png")
-      : path.join(process.resourcesPath, "build/icon.png");
+  let iconPath = '';
+  if (process.env.NODE_ENV === "development") {
+    // 开发环境下使用项目根目录下的图标
+    iconPath = path.join(__dirname, "../../build/icon.png");
+  } else {
+    // 生产环境下尝试多个可能的路径
+    const possiblePaths = [
+      path.join(process.resourcesPath, "build/icon.png"), // 默认路径
+      path.join(process.resourcesPath, "../build/icon.png"), // 可能的备选路径
+      path.join(process.resourcesPath, "build/icons/icon.png"), // 可能的备选路径
+      path.join(process.resourcesPath, "icon.png"), // 可能的备选路径
+      path.join(process.resourcesPath, "app.asar.unpacked/build/icon.png") // asar解包路径
+    ];
+
+    // 找到第一个存在的图标文件
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        iconPath = possiblePath;
+        break;
+      }
+    }
+  }
 
   // 开发模式下显示边框以便查看左上角图标，生产模式下无边框
   const isDev =
@@ -202,10 +220,28 @@ function createWindow() {
 // 创建系统托盘
 function createTray() {
   // 创建托盘图标 - 在开发和生产环境下都能正确加载
-  const iconPath =
-    process.env.NODE_ENV === "development"
-      ? path.join(__dirname, "../../build/icon.png")
-      : path.join(process.resourcesPath, "build/icon.png");
+  let iconPath = '';
+  if (process.env.NODE_ENV === "development") {
+    // 开发环境下使用项目根目录下的图标
+    iconPath = path.join(__dirname, "../../build/icon.png");
+  } else {
+    // 生产环境下尝试多个可能的路径
+    const possiblePaths = [
+      path.join(process.resourcesPath, "build/icon.png"), // 默认路径
+      path.join(process.resourcesPath, "../build/icon.png"), // 可能的备选路径
+      path.join(process.resourcesPath, "build/icons/icon.png"), // 可能的备选路径
+      path.join(process.resourcesPath, "icon.png"), // 可能的备选路径
+      path.join(process.resourcesPath, "app.asar.unpacked/build/icon.png") // asar解包路径
+    ];
+
+    // 找到第一个存在的图标文件
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        iconPath = possiblePath;
+        break;
+      }
+    }
+  }
 
   try {
     tray = new Tray(iconPath);
@@ -388,17 +424,43 @@ function registerGlobalShortcuts() {
 
 // ==================== 自动更新功能 ====================
 
+// 检查是否启用自动更新（默认启用）
+let autoUpdateEnabled = true;
+
 /**
  * 配置自动更新
  */
 function setupAutoUpdater() {
-  // 设置更新服务器 URL（GitHub Releases）
-  // 注意：开发环境下不会检查更新，只有打包后才会
-  autoUpdater.setFeedURL({
-    provider: "github",
-    owner: "zxbdzh",
-    repo: "moyu",
-  });
+  try {
+    console.log("开始配置自动更新...");
+    if (!app.isPackaged) {
+      // 开发环境中使用 dev-app-update.yml 配置
+      console.log("开发模式：将使用 dev-app-update.yml 配置");
+      autoUpdater.fullChangelog = true;
+    } else {
+      // 生产环境中使用标准配置
+      console.log("生产模式：将使用标准配置");
+      autoUpdater.fullChangelog = false;
+    }
+    // 设置更新服务器 URL（GitHub Releases）
+    const updateConfig = {
+      provider: "github",
+      owner: "zxbdzh",
+      repo: "MoLeMa",
+    };
+    console.log("自动更新配置:", JSON.stringify(updateConfig, null, 2));
+    autoUpdater.setFeedURL(updateConfig);
+    console.log("自动更新配置成功");
+    
+    // 在生产环境中设置更新下载进度和完成事件
+    if (app.isPackaged) {
+      console.log("在生产环境中设置更新事件处理器");
+    }
+  } catch (error) {
+    console.error("设置自动更新失败:", error);
+    // 不抛出错误，而是记录错误并继续
+    return;
+  }
 
   // 监听更新事件
   autoUpdater.on("checking-for-update", () => {
@@ -417,12 +479,42 @@ function setupAutoUpdater() {
       .showMessageBox({
         type: "info",
         title: "发现新版本",
-        message: `发现新版本 ${info.version}，正在下载中...`,
+        message: `发现新版本 ${info.version}，点击确定开始下载...`,
         buttons: ["确定"],
       })
       .then(() => {
+        console.log("用户点击确定，开始下载更新...");
         // 开始下载更新
-        autoUpdater.downloadUpdate();
+        try {
+          const downloadPromise = autoUpdater.downloadUpdate();
+          console.log("下载更新已启动");
+          // 发送开始下载的通知
+          mainWindow?.webContents.send("update:progress", {
+            percent: 0,
+            transferred: 0,
+            total: 1,
+            bytesPerSecond: 0,
+            status: "started"
+          });
+        } catch (error) {
+          console.error("启动下载更新失败:", error);
+          // 显示错误对话框
+          dialog.showMessageBox({
+            type: "error",
+            title: "下载错误",
+            message: `启动更新下载失败: ${error.message}`,
+            buttons: ["确定"],
+          });
+        }
+      })
+      .catch((error) => {
+        console.error("显示更新对话框失败:", error);
+        // 即使对话框失败，也尝试开始下载
+        try {
+          autoUpdater.downloadUpdate();
+        } catch (downloadError) {
+          console.error("启动下载更新失败:", downloadError);
+        }
       });
   });
 
@@ -431,24 +523,37 @@ function setupAutoUpdater() {
     mainWindow?.webContents.send("update:not-available", {
       version: info.version,
     });
-  });
-
-  autoUpdater.on("error", (err) => {
-    console.error("自动更新错误:", err);
-    mainWindow?.webContents.send("update:error", {
-      message: err.message,
+    // 也向用户发送通知
+    dialog.showMessageBox({
+      type: "info",
+      title: "已是最新版本",
+      message: `当前版本 ${info.version} 已是最新版本`,
+      buttons: ["确定"],
     });
-    // 开发环境下错误是正常的，不显示错误对话框
-    if (app.isPackaged) {
-      dialog.showMessageBox({
-        type: "error",
-        title: "更新错误",
-        message: `更新失败: ${err.message}`,
-        buttons: ["确定"],
-      });
-    }
   });
 
+    autoUpdater.on("error", (err) => {
+      console.error("自动更新错误:", err);
+      
+      // 检查是否是 app-update.yml 文件不存在的错误
+      if (err.message && (err.message.includes("app-update.yml") || err.message.includes("ENOENT"))) {
+        console.warn("app-update.yml 文件问题，尝试继续使用默认配置:", err.message);
+        // 不返回，继续发送错误消息到前端，这样用户可以知道问题
+      }
+      
+      mainWindow?.webContents.send("update:error", {
+        message: err.message,
+      });
+      // 开发环境下错误是正常的，不显示错误对话框
+      if (app.isPackaged) {
+        dialog.showMessageBox({
+          type: "error",
+          title: "更新错误",
+          message: `更新失败: ${err.message}`,
+          buttons: ["确定"],
+        });
+      }
+    });
   autoUpdater.on("download-progress", (progressObj) => {
     let logMessage = `下载进度: ${Math.floor(progressObj.percent)}%`;
     logMessage += ` (${progressObj.transferred}/${progressObj.total} bytes)`;
@@ -459,6 +564,7 @@ function setupAutoUpdater() {
       transferred: progressObj.transferred,
       total: progressObj.total,
       bytesPerSecond: progressObj.bytesPerSecond,
+      status: "downloading"
     });
   });
 
@@ -484,6 +590,18 @@ function setupAutoUpdater() {
         }
       });
   });
+}
+
+// 获取自动更新状态
+function getAutoUpdateEnabled() {
+  return autoUpdateEnabled;
+}
+
+// 设置自动更新状态
+function setAutoUpdateEnabled(enabled: boolean) {
+  autoUpdateEnabled = enabled;
+  console.log(`自动更新已${enabled ? '启用' : '禁用'}`);
+  return true;
 }
 
 // ==================== 应用启动 ====================
@@ -525,13 +643,38 @@ app.whenReady().then(() => {
   createTray();
   registerGlobalShortcuts();
 
-  // 设置自动更新（仅在打包后生效）
+  // 设置自动更新（在打包后和开发环境中都可运行）
   if (app.isPackaged) {
+    console.log("应用已打包，开始设置自动更新...");
     setupAutoUpdater();
-    // 启动时检查一次更新
-    autoUpdater.checkForUpdates();
+    // 根据用户设置决定是否启动时检查更新
+    if (getAutoUpdateEnabled()) {
+      console.log("自动更新已启用，开始检查更新...");
+      try {
+        autoUpdater.checkForUpdates();
+      } catch (error) {
+        console.error("检查更新时出错:", error);
+      }
+    } else {
+      console.log("自动更新已被禁用，跳过更新检查");
+    }
   } else {
-    console.log("开发模式，跳过自动更新检查");
+    // 在开发环境中也允许测试自动更新
+    console.log("开发模式，但仍可测试自动更新...");
+    setupAutoUpdater();
+    // 启用开发模式下的更新配置
+    // autoUpdater.forceDevUpdateConfig = true; // 注释掉这行，避免在生产环境错误配置
+    // 根据用户设置决定是否启动时检查更新
+    if (getAutoUpdateEnabled()) {
+      console.log("自动更新已启用，开始检查更新...");
+      try {
+        autoUpdater.checkForUpdates();
+      } catch (error) {
+        console.error("检查更新时出错:", error);
+      }
+    } else {
+      console.log("自动更新已被禁用，跳过更新检查");
+    }
   }
 
   app.on("activate", () => {
@@ -2379,13 +2522,15 @@ ipcMain.handle(
 // 手动检查更新
 ipcMain.handle("updater:checkForUpdates", async () => {
   try {
+    console.log("手动检查更新请求收到");
     if (!app.isPackaged) {
-      return {
-        success: false,
-        error: "开发模式不支持自动更新检查",
-      };
+      // 在开发环境中也允许检查更新（使用 dev-app-update.yml）
+      console.log("开发模式：允许检查更新（使用 dev-app-update.yml）");
+      autoUpdater.forceDevUpdateConfig = true;
     }
+    console.log("开始检查更新...");
     await autoUpdater.checkForUpdates();
+    console.log("检查更新请求已发送");
     return { success: true };
   } catch (error) {
     console.error("Failed to check for updates:", error);
@@ -2556,3 +2701,38 @@ ipcMain.handle(
     }
   },
 );
+
+// ==================== 自动更新设置 IPC 处理器 ====================
+
+// 获取自动更新状态
+ipcMain.handle("autoUpdate:getEnabled", async () => {
+  try {
+    return { success: true, enabled: getAutoUpdateEnabled() };
+  } catch (error) {
+    console.error("Failed to get auto update status:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get auto update status",
+    };
+  }
+});
+
+// 设置自动更新状态
+ipcMain.handle("autoUpdate:setEnabled", async (_event, enabled: boolean) => {
+  try {
+    const result = setAutoUpdateEnabled(enabled);
+    return { success: true, enabled: result };
+  } catch (error) {
+    console.error("Failed to set auto update status:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to set auto update status",
+    };
+  }
+});

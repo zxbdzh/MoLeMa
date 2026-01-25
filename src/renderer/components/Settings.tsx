@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Keyboard, Save, RotateCcw, FolderOpen, Info, Check, X, RefreshCw } from 'lucide-react'
+import { Keyboard, Save, RotateCcw, FolderOpen, Info, Check, X, RefreshCw, RotateCcw as UpdateIcon } from 'lucide-react'
 import { Card3D } from './3DCard'
 
 interface ShortcutConfig {
@@ -23,6 +23,10 @@ export default function Settings() {
   const [proxyTesting, setProxyTesting] = useState(false)
   const [proxyTestResult, setProxyTestResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
 
+  // 自动更新设置
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
+  const [autoUpdateSaved, setAutoUpdateSaved] = useState(false);
+
   useEffect(() => {
     window.electronAPI?.shortcuts?.get().then((config) => {
       if (config) {
@@ -35,6 +39,13 @@ export default function Settings() {
         setDataPath(result.path || '')
       }
     })
+
+    // 获取自动更新设置状态
+    window.electronAPI?.autoUpdate?.getEnabled().then((result) => {
+      if (result?.success) {
+        setAutoUpdateEnabled(result.enabled);
+      }
+    });
   }, [])
 
   const handleRecordShortcut = (key: keyof ShortcutConfig) => {
@@ -130,6 +141,18 @@ export default function Settings() {
       setTimeout(() => setSaved(false), 2000)
     } catch (error) {
       console.error('保存代理设置失败:', error)
+    }
+  }
+
+  const handleAutoUpdateChange = async () => {
+    try {
+      const newEnabled = !autoUpdateEnabled;
+      setAutoUpdateEnabled(newEnabled);
+      await window.electronAPI?.autoUpdate?.setEnabled?.(newEnabled);
+      setAutoUpdateSaved(true);
+      setTimeout(() => setAutoUpdateSaved(false), 2000);
+    } catch (error) {
+      console.error('保存自动更新设置失败:', error);
     }
   }
 
@@ -394,6 +417,61 @@ export default function Settings() {
           <Save className="w-4 h-4" />
           {saved ? '已保存' : '保存代理设置'}
         </button>
+      </div>
+
+      {/* 自动更新设置 */}
+      <div className="space-y-4">
+        <div className="text-center mb-4">
+          <h2 className="text-3xl font-bold font-heading mb-2 dark:text-white text-slate-900">
+            自动更新设置
+          </h2>
+          <p className="text-slate-400 dark:text-slate-400 text-slate-600">配置应用自动更新行为</p>
+        </div>
+
+        <Card3D className="p-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">自动更新</h3>
+              <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">允许应用自动检查并下载更新</p>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="auto-update-enabled"
+                  checked={autoUpdateEnabled}
+                  onChange={handleAutoUpdateChange}
+                  className="w-5 h-5 rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <label htmlFor="auto-update-enabled" className="text-slate-700 dark:text-slate-300 cursor-pointer">
+                  启用自动更新
+                </label>
+              </div>
+
+              {autoUpdateSaved && (
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                  <Check className="w-4 h-4" />
+                  已保存
+                </div>
+              )}
+            </div>
+
+            <div className="bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-500/20 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-700 dark:text-blue-300">
+                  <p className="font-medium mb-1">注意事项：</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>启用自动更新后，应用会在启动时自动检查新版本</li>
+                    <li>发现新版本时，应用会自动下载并提示安装</li>
+                    <li>禁用后，您需要手动检查并安装更新</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card3D>
       </div>
     </div>
   )

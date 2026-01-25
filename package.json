@@ -10,7 +10,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "pack": "electron-builder --dir",
+    "pack": "pnpm build & electron-builder --dir",
     "dist": "electron-vite build & electron-builder --publish always",
     "build:win": "pnpm run build && electron-builder --win --config --publish always",
     "build:mac": "pnpm run build && electron-builder --mac --config --publish always",
@@ -33,12 +33,22 @@
     "files": [
       "out/**/*",
       "package.json",
-      "build/**/*"
+      "build/**/*",
+      "node_modules/electron-updater/**/*",
+      "app-update.yml"
     ],
     "asar": true,
     "asarUnpack": [
       "node_modules/better-sqlite3/**/*",
-      "build/**/*"
+      "build/**/*",
+      "node_modules/electron-updater/**/*",
+      "**/app-update.yml"
+    ],
+    "extraResources": [
+      {
+        "from": "app-update.yml",
+        "to": "app-update.yml"
+      }
     ],
     "win": {
       "icon": "build/icon.ico",
