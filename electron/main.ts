@@ -9,6 +9,7 @@ import {
   ipcMain,
   dialog,
   session,
+  shell,
 } from "electron";
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
@@ -430,9 +431,10 @@ let autoUpdateEnabled = true;
 /**
  * 配置自动更新
  */
-function setupAutoUpdater() {
+async function setupAutoUpdater() {
   try {
     console.log("开始配置自动更新...");
+
     if (!app.isPackaged) {
       // 开发环境中使用 dev-app-update.yml 配置
       console.log("开发模式：将使用 dev-app-update.yml 配置");
@@ -442,16 +444,18 @@ function setupAutoUpdater() {
       console.log("生产模式：将使用标准配置");
       autoUpdater.fullChangelog = false;
     }
-    // 设置更新服务器 URL（GitHub Releases）
+
+    // 使用 GitHub 作为更新源
     const updateConfig = {
-      provider: "github",
-      owner: "zxbdzh",
-      repo: "MoLeMa",
+      provider: 'github',
+      owner: 'zxbdzh',
+      repo: 'MoLeMa',
     };
+
     console.log("自动更新配置:", JSON.stringify(updateConfig, null, 2));
     autoUpdater.setFeedURL(updateConfig);
     console.log("自动更新配置成功");
-    
+
     // 在生产环境中设置更新下载进度和完成事件
     if (app.isPackaged) {
       console.log("在生产环境中设置更新事件处理器");
@@ -534,13 +538,13 @@ function setupAutoUpdater() {
 
     autoUpdater.on("error", (err) => {
       console.error("自动更新错误:", err);
-      
+
       // 检查是否是 app-update.yml 文件不存在的错误
       if (err.message && (err.message.includes("app-update.yml") || err.message.includes("ENOENT"))) {
         console.warn("app-update.yml 文件问题，尝试继续使用默认配置:", err.message);
         // 不返回，继续发送错误消息到前端，这样用户可以知道问题
       }
-      
+
       mainWindow?.webContents.send("update:error", {
         message: err.message,
       });
@@ -549,8 +553,15 @@ function setupAutoUpdater() {
         dialog.showMessageBox({
           type: "error",
           title: "更新错误",
-          message: `更新失败: ${err.message}`,
-          buttons: ["确定"],
+          message: `更新失败: ${err.message}\n\n您可以前往 GitHub Releases 页面手动下载最新版本：\nhttps://github.com/zxbdzh/MoLeMa/releases`,
+          buttons: ["确定", "前往 GitHub"],
+          defaultId: 0,
+          cancelId: 0,
+        }).then(({ response }) => {
+          if (response === 1) {
+            // 用户选择前往 GitHub
+            shell.openExternal("https://github.com/zxbdzh/MoLeMa/releases");
+          }
         });
       }
     });

@@ -1,4 +1,3 @@
-provider: generic
-url: https://gitee.com/zxbdzh/MoLeMa/releases/download/
-updaterCacheDirName: moyu-app-updater
-channel: latest
+provider: github
+owner: zxbdzh
+repo: MoLeMa

@@ -1,6 +1,6 @@
 {
   "name": "moyu-app",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "type": "module",
   "description": "摸鱼软件 - 全局快捷键显示隐藏，快速查看技术文章",
   "main": "./out/main/index.js",
@@ -10,8 +10,9 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "pack": "pnpm build & electron-builder --dir",
-    "dist": "electron-vite build & electron-builder --publish always",
+    "pack": "pnpm build && electron-builder --dir",
+    "dist": "electron-vite build && electron-builder --publish=never",
+    "dist:publish": "electron-vite build && electron-builder --publish=always",
     "build:win": "pnpm run build && electron-builder --win --config --publish always",
     "build:mac": "pnpm run build && electron-builder --mac --config --publish always",
     "postinstall": "electron-builder install-app-deps",
@@ -60,10 +61,7 @@
             "x64"
           ]
         }
-      ],
-      "signAndEditExecutable": true,
-      "verifyUpdateCodeSignature": false,
-      "forceCodeSigning": false
+      ]
     },
     "nsis": {
       "oneClick": false,
