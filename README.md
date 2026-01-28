@@ -1,6 +1,8 @@
-# 摸了吗
-
 <div align="center">
+
+![MoLeMa](https://github.com/zxbdzh/MoLeMa/blob/19cedda01f1047b992476180e9ef3641ebc1a159/icons/icon.png)
+
+# 摸了吗
 
 **🎯 专为程序员打造的摸鱼神器**
 
