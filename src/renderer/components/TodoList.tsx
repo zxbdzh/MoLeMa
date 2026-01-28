@@ -15,7 +15,10 @@ import {
 import { 
   arrayMove, 
   sortableKeyboardCoordinates,
-  useSortable
+  useSortable,
+  defaultAnimateLayoutChanges,
+  AnimateLayoutChanges,
+  SortableContext
 } from '@dnd-kit/sortable'
 import { CSS as DndCSS } from '@dnd-kit/utilities'
 import type { TodoCompletionStats } from '../types/electron'
@@ -240,6 +243,8 @@ export default function TodoList() {
     updateTodo,
     clearCompleted,
     updateOrder,
+    updatePendingOrder,
+    updateCompletedOrder,
     initialize,
     completionStats,
     loadCompletionStats,
@@ -318,14 +323,49 @@ export default function TodoList() {
   )
 
   const handleDragEnd = (event: DragEndEvent) => {
+    console.log('Drag end event:', event)
     const { active, over } = event
+    console.log('Active ID:', active.id)
+    console.log('Over ID:', over?.id)
+    console.log('Pending todos:', pendingTodos.map(t => ({ id: t.id, text: t.text })))
+    console.log('Completed todos:', completedTodos.map(t => ({ id: t.id, text: t.text })))
     
     if (over && active.id !== over.id) {
-      const oldIndex = todos.findIndex((item: Todo) => item.id === active.id)
-      const newIndex = todos.findIndex((item: Todo) => item.id === over.id)
+      const activeTodo = pendingTodos.find((t: Todo) => t.id === active.id)
+      const overTodo = pendingTodos.find((t: Todo) => t.id === over.id)
       
-      const newTodos = arrayMove(todos, oldIndex, newIndex)
-      updateOrder(newTodos)
+      console.log('Active todo:', activeTodo)
+      console.log('Over todo:', overTodo)
+      
+      let sourceList: Todo[]
+      let targetList: Todo[]
+      
+      if (activeTodo && overTodo) {
+        // 都在待完成列表中
+        sourceList = pendingTodos
+        targetList = pendingTodos
+      } else {
+        // 都在已完成列表中
+        sourceList = completedTodos
+        targetList = completedTodos
+      }
+      
+      const oldIndex = sourceList.findIndex((item: Todo) => item.id === active.id)
+      const newIndex = targetList.findIndex((item: Todo) => item.id === over.id)
+      
+      console.log('Old index:', oldIndex, 'New index:', newIndex)
+      
+      const newSourceList = arrayMove(sourceList, oldIndex, newIndex)
+      console.log('New list:', newSourceList)
+      
+      // 更新对应的列表
+      if (activeTodo && overTodo) {
+        // 更新待完成列表
+        updatePendingOrder(newSourceList)
+      } else {
+        // 更新已完成列表
+        updateCompletedOrder(newSourceList)
+      }
     }
   }
 
@@ -399,17 +439,19 @@ export default function TodoList() {
 
         <div className="mt-8 space-y-3">
           {/* 待完成的任务 */}
-          <div className="space-y-3">
-            {pendingTodos.map((todo: Todo) => (
-              <SortableTodoItem 
-                key={todo.id} 
-                todo={todo} 
-                toggleTodo={toggleTodo} 
-                deleteTodo={deleteTodo} 
-                updateTodo={updateTodo} 
-              />
-            ))}
-          </div>
+          <SortableContext items={pendingTodos.map(t => t.id)}>
+            <div className="space-y-3">
+              {pendingTodos.map((todo: Todo) => (
+                <SortableTodoItem 
+                  key={todo.id} 
+                  todo={todo} 
+                  toggleTodo={toggleTodo} 
+                  deleteTodo={deleteTodo} 
+                  updateTodo={updateTodo} 
+                />
+              ))}
+            </div>
+          </SortableContext>
 
           {/* 已完成的任务 */}
           {completedTodos.length > 0 && (
@@ -427,16 +469,17 @@ export default function TodoList() {
               </button>
 
               {!completedCollapsed && (
-                <div className="space-y-3">
-                  {completedTodos.map((todo: Todo) => (
-                    <SortableTodoItem
-                      key={todo.id}
-                      todo={todo}
-                      toggleTodo={toggleTodo}
-                      deleteTodo={deleteTodo}
-                      updateTodo={updateTodo}
-                    />
-                  ))}
+                <SortableContext items={completedTodos.map(t => t.id)}>
+                  <div className="space-y-3">
+                    {completedTodos.map((todo: Todo) => (
+                      <SortableTodoItem
+                        key={todo.id}
+                        todo={todo}
+                        toggleTodo={toggleTodo}
+                        deleteTodo={deleteTodo}
+                        updateTodo={updateTodo}
+                      />
+                    ))}
 
                   {/* 分页控件 */}
                   {completedTotalPages > 1 && (
@@ -541,6 +584,7 @@ export default function TodoList() {
                     </div>
                   )}
                 </div>
+                </SortableContext>
               )}
             </div>
           )}
@@ -581,6 +625,9 @@ function SortableTodoItem({ todo, toggleTodo, deleteTodo, updateTodo }: {
   deleteTodo: (id: string) => void, 
   updateTodo: (id: string, text: string) => void 
 }) {
+  const animateLayoutChanges: AnimateLayoutChanges = (args) =>
+    defaultAnimateLayoutChanges({ ...args, wasDragging: true })
+
   const {
     attributes,
     listeners,
@@ -588,7 +635,10 @@ function SortableTodoItem({ todo, toggleTodo, deleteTodo, updateTodo }: {
     transform,
     transition,
     isDragging
-  } = useSortable({ id: todo.id })
+  } = useSortable({ 
+    id: todo.id,
+    animateLayoutChanges
+  })
 
   const style = {
     transform: DndCSS.Transform.toString(transform),
@@ -632,16 +682,19 @@ function SortableTodoItem({ todo, toggleTodo, deleteTodo, updateTodo }: {
       <div className="p-4 flex items-center gap-4">
         {/* 拖动手柄 - 六点图标，增大尺寸 */}
         <div 
-          className="flex-shrink-0 cursor-grab active:cursor-grabbing p-1" 
+          className="flex-shrink-0 cursor-grab active:cursor-grabbing p-2 select-none touch-none" 
           {...attributes} 
           {...listeners}
+          role="button"
+          aria-label="拖动排序"
+          tabIndex={0}
         >
           <svg 
             width="24" 
             height="24" 
             viewBox="0 0 24 24" 
             fill="currentColor" 
-            className="w-6 h-6 text-slate-400"
+            className="w-6 h-6 text-slate-400 pointer-events-none"
           >
             <circle cx="8" cy="8" r="2" />
             <circle cx="8" cy="12" r="2" />
@@ -653,7 +706,11 @@ function SortableTodoItem({ todo, toggleTodo, deleteTodo, updateTodo }: {
         </div>
         
         {/* 完成状态图标 - 增大尺寸 */}
-        <div className="flex-shrink-0 cursor-pointer" onClick={() => toggleTodo(todo.id)}>
+        <div 
+          className="flex-shrink-0 cursor-pointer" 
+          onClick={() => toggleTodo(todo.id)}
+          data-no-dnd="true"
+        >
           {todo.completed ? (
             <CheckCircle className="w-6 h-6 text-green-400" />
           ) : (
@@ -674,6 +731,7 @@ function SortableTodoItem({ todo, toggleTodo, deleteTodo, updateTodo }: {
               }}
               autoFocus
               onClick={(e) => e.stopPropagation()}
+              data-no-dnd="true"
               className="w-full px-3 py-1 bg-slate-800/50 dark:bg-slate-800/50 bg-white/50 border border-slate-700 dark:border-slate-700 border-slate-200 rounded focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
             />
           ) : (
@@ -698,6 +756,7 @@ function SortableTodoItem({ todo, toggleTodo, deleteTodo, updateTodo }: {
               }}
               className="p-2 hover:bg-slate-800/50 dark:hover:bg-slate-800/50 hover:bg-slate-200 rounded transition-colors cursor-pointer"
               title="编辑"
+              data-no-dnd="true"
             >
               <Edit2 className="w-4 h-4 text-gray-400" />
             </button>
@@ -709,6 +768,7 @@ function SortableTodoItem({ todo, toggleTodo, deleteTodo, updateTodo }: {
             }}
             className="p-2 hover:bg-red-500/20 rounded transition-colors cursor-pointer"
             title="删除"
+            data-no-dnd="true"
           >
             <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-400" />
           </button>

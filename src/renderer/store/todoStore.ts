@@ -424,6 +424,46 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       console.error('Error updating todo order in database:', error);
       // 降级到本地状态更新
     }
+  },
+  
+  updatePendingOrder: async (newPendingTodos) => {
+    // 为每个todo添加顺序索引
+    const todosWithOrder = newPendingTodos.map((todo, index) => ({
+      ...todo,
+      order: index
+    }))
+    
+    // 获取ID数组并转换为数字类型
+    const orderedIds = newPendingTodos.map(todo => parseInt(todo.id))
+    
+    try {
+      // 调用数据库API更新顺序
+      await window.electronAPI?.todos?.updateOrder(orderedIds)
+      // 更新本地状态
+      set({ pendingTodos: todosWithOrder })
+    } catch (error) {
+      console.error('Error updating pending todo order in database:', error);
+    }
+  },
+  
+  updateCompletedOrder: async (newCompletedTodos) => {
+    // 为每个todo添加顺序索引
+    const todosWithOrder = newCompletedTodos.map((todo, index) => ({
+      ...todo,
+      order: index
+    }))
+    
+    // 获取ID数组并转换为数字类型
+    const orderedIds = newCompletedTodos.map(todo => parseInt(todo.id))
+    
+    try {
+      // 调用数据库API更新顺序
+      await window.electronAPI?.todos?.updateOrder(orderedIds)
+      // 更新本地状态
+      set({ completedTodos: todosWithOrder })
+    } catch (error) {
+      console.error('Error updating completed todo order in database:', error);
+    }
   }
 }))
 
