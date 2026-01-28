@@ -4,7 +4,7 @@
 
 **🎯 专为程序员打造的摸鱼神器**
 
-[![Version](https://img.shields.io/badge/version-0.0.1-blue)](https://github.com/zxbdzh/MoLeMa)
+[![Version](https://img.shields.io/badge/version-0.0.5-blue)](https://github.com/zxbdzh/MoLeMa)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Electron](https://img.shields.io/badge/Electron-39.2.7-9FEAF9)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18.3.1-61DAFB)](https://reactjs.org/)
@@ -38,7 +38,9 @@
 - 任务和待办事项管理
 - 任务完成状态标记
 - 任务编辑和删除
-- 统计信息展示
+- **拖动排序功能**（支持待完成和已完成列表）
+- 任务分页显示（已完成任务）
+- 完成统计（今日、本周、本月、本年、累计）
 - 清除已完成任务
 
 ### 🌐 新闻资讯
@@ -193,6 +195,9 @@ pnpm dist
 
 ```
 MoLeMa/
+├── .github/                 # GitHub Actions 配置
+│   └── workflows/           # 工作流文件
+│       └── publish.yml      # 自动发布工作流
 ├── electron/                 # Electron 主进程代码
 │   ├── main.ts              # 主进程入口
 │   ├── preload.ts           # 预加载脚本
@@ -272,6 +277,21 @@ pnpm dist
 ```
 
 使用 electron-builder 打包应用，输出到 `release/{version}/` 目录。
+
+### 自动发布到 GitHub Releases
+
+```bash
+# 创建 tag
+git tag v0.0.6
+
+# 推送 tag 到 GitHub
+git push origin v0.0.6
+```
+
+推送 tag 后，GitHub Actions 会自动：
+- 构建应用
+- 创建 GitHub Release
+- 上传安装包到 Releases
 
 ### 预览构建
 
