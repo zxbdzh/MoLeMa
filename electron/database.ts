@@ -18,10 +18,46 @@ const settingsStore = new Store({
  */
 export function getDatabase(): Database.Database {
   if (!db) {
-    // 优先使用自定义数据库路径，否则使用默认路径
     const customPath = settingsStore.get('customDatabasePath') as string | null;
-    const dbPath = customPath || path.join(app.getPath('userData'), 'moyu.db');
-    db = new Database(dbPath);
+    let dbPath = customPath || path.join(app.getPath('userData'), 'moyu.db');
+    
+    // 检查自定义路径是否有效
+    if (customPath) {
+      const fs = require('fs');
+      if (fs.existsSync(customPath)) {
+        const stats = fs.statSync(customPath);
+        if (stats.isDirectory()) {
+          console.error('Custom database path is a directory, not a file:', customPath);
+          console.error('Clearing invalid custom database path configuration');
+          // 清除错误的配置
+          settingsStore.delete('customDatabasePath');
+          // 使用默认路径
+          dbPath = path.join(app.getPath('userData'), 'moyu.db');
+        }
+      }
+    }
+    
+    // 确保目录存在
+    const dbDir = path.dirname(dbPath);
+    const fs = require('fs');
+    if (!fs.existsSync(dbDir)) {
+      try {
+        fs.mkdirSync(dbDir, { recursive: true });
+        console.log('Created database directory:', dbDir);
+      } catch (error) {
+        console.error('Failed to create database directory:', error);
+        throw new Error(`Cannot create database directory: ${dbDir}`);
+      }
+    }
+    
+    try {
+      db = new Database(dbPath);
+      console.log('Database opened successfully');
+    } catch (error) {
+      console.error('Failed to open database:', error);
+      console.error('Database path:', dbPath);
+      throw error;
+    }
     
     // 启用外键约束
     db.pragma('foreign_keys = ON');
