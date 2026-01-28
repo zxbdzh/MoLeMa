@@ -486,38 +486,35 @@ async function setupAutoUpdater() {
         message: `发现新版本 ${info.version}，点击确定开始下载...`,
         buttons: ["确定"],
       })
-      .then(() => {
+      .then(async () => {
         console.log("用户点击确定，开始下载更新...");
-        // 开始下载更新
+        
+        // 显示下载开始提示
+        mainWindow?.webContents.send("update:progress", {
+          percent: 0,
+          transferred: 0,
+          total: 1,
+          bytesPerSecond: 0,
+          status: "started"
+        });
+        
         try {
-          const downloadPromise = autoUpdater.downloadUpdate();
-          console.log("下载更新已启动");
-          // 发送开始下载的通知
-          mainWindow?.webContents.send("update:progress", {
-            percent: 0,
-            transferred: 0,
-            total: 1,
-            bytesPerSecond: 0,
-            status: "started"
-          });
+          await autoUpdater.downloadUpdate();
+          console.log("下载更新完成");
         } catch (error) {
-          console.error("启动下载更新失败:", error);
-          // 显示错误对话框
+          console.error("下载更新失败:", error);
           dialog.showMessageBox({
             type: "error",
             title: "下载错误",
-            message: `启动更新下载失败: ${error.message}`,
-            buttons: ["确定"],
+            message: `下载更新失败: ${error.message}\n\n您可以前往 GitHub Releases 页面手动下载最新版本：\nhttps://github.com/zxbdzh/MoLeMa/releases`,
+            buttons: ["确定", "前往 GitHub"],
+            defaultId: 0,
+            cancelId: 0,
+          }).then(({ response }) => {
+            if (response === 1) {
+              shell.openExternal("https://github.com/zxbdzh/MoLeMa/releases");
+            }
           });
-        }
-      })
-      .catch((error) => {
-        console.error("显示更新对话框失败:", error);
-        // 即使对话框失败，也尝试开始下载
-        try {
-          autoUpdater.downloadUpdate();
-        } catch (downloadError) {
-          console.error("启动下载更新失败:", downloadError);
         }
       });
   });
@@ -548,22 +545,21 @@ async function setupAutoUpdater() {
       mainWindow?.webContents.send("update:error", {
         message: err.message,
       });
-      // 开发环境下错误是正常的，不显示错误对话框
-      if (app.isPackaged) {
-        dialog.showMessageBox({
-          type: "error",
-          title: "更新错误",
-          message: `更新失败: ${err.message}\n\n您可以前往 GitHub Releases 页面手动下载最新版本：\nhttps://github.com/zxbdzh/MoLeMa/releases`,
-          buttons: ["确定", "前往 GitHub"],
-          defaultId: 0,
-          cancelId: 0,
-        }).then(({ response }) => {
-          if (response === 1) {
-            // 用户选择前往 GitHub
-            shell.openExternal("https://github.com/zxbdzh/MoLeMa/releases");
-          }
-        });
-      }
+      
+      // 在所有环境显示错误对话框
+      dialog.showMessageBox({
+        type: "error",
+        title: "更新错误",
+        message: `更新失败: ${err.message}\n\n您可以前往 GitHub Releases 页面手动下载最新版本：\nhttps://github.com/zxbdzh/MoLeMa/releases`,
+        buttons: ["确定", "前往 GitHub"],
+        defaultId: 0,
+        cancelId: 0,
+      }).then(({ response }) => {
+        if (response === 1) {
+          // 用户选择前往 GitHub
+          shell.openExternal("https://github.com/zxbdzh/MoLeMa/releases");
+        }
+      });
     });
   autoUpdater.on("download-progress", (progressObj) => {
     let logMessage = `下载进度: ${Math.floor(progressObj.percent)}%`;
@@ -2744,6 +2740,51 @@ ipcMain.handle("autoUpdate:setEnabled", async (_event, enabled: boolean) => {
         error instanceof Error
           ? error.message
           : "Failed to set auto update status",
+    };
+  }
+});
+
+// 开机自启设置
+ipcMain.handle("autoLaunch:getEnabled", async () => {
+  try {
+    const settings = app.getLoginItemSettings();
+    return { success: true, enabled: settings.openAtLogin };
+  } catch (error) {
+    console.error("Failed to get auto launch status:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get auto launch status",
+    };
+  }
+});
+
+ipcMain.handle("autoLaunch:setEnabled", async (_event, enabled: boolean) => {
+  try {
+    // 只在打包后才能设置开机自启
+    if (!app.isPackaged) {
+      console.warn("开发模式不支持设置开机自启");
+      return { success: false, error: "开发模式不支持设置开机自启" };
+    }
+    
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      // macOS 可以设置以隐藏方式启动
+      openAsHidden: process.platform === 'darwin' && enabled,
+    });
+    
+    console.log(`开机自启已${enabled ? '启用' : '禁用'}`);
+    return { success: true, enabled };
+  } catch (error) {
+    console.error("Failed to set auto launch status:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to set auto launch status",
     };
   }
 });

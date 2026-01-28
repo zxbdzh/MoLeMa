@@ -27,6 +27,10 @@ export default function Settings() {
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
   const [autoUpdateSaved, setAutoUpdateSaved] = useState(false);
 
+  // 开机自启设置
+  const [autoLaunchEnabled, setAutoLaunchEnabled] = useState(false);
+  const [autoLaunchSaved, setAutoLaunchSaved] = useState(false);
+
   useEffect(() => {
     window.electronAPI?.shortcuts?.get().then((config) => {
       if (config) {
@@ -44,6 +48,13 @@ export default function Settings() {
     window.electronAPI?.autoUpdate?.getEnabled().then((result) => {
       if (result?.success) {
         setAutoUpdateEnabled(result.enabled);
+      }
+    });
+
+    // 获取开机自启设置状态
+    window.electronAPI?.autoLaunch?.getEnabled().then((result) => {
+      if (result?.success) {
+        setAutoLaunchEnabled(result.enabled);
       }
     });
   }, [])
@@ -153,6 +164,28 @@ export default function Settings() {
       setTimeout(() => setAutoUpdateSaved(false), 2000);
     } catch (error) {
       console.error('保存自动更新设置失败:', error);
+    }
+  }
+
+  const handleAutoLaunchChange = async () => {
+    try {
+      const newEnabled = !autoLaunchEnabled;
+      setAutoLaunchEnabled(newEnabled);
+      const result = await window.electronAPI?.autoLaunch?.setEnabled?.(newEnabled);
+      if (result?.success) {
+        setAutoLaunchSaved(true);
+        setTimeout(() => setAutoLaunchSaved(false), 2000);
+      } else {
+        console.error('保存开机自启设置失败:', result?.error);
+        alert(result?.error || '保存开机自启设置失败');
+        // 恢复状态
+        setAutoLaunchEnabled(!newEnabled);
+      }
+    } catch (error) {
+      console.error('保存开机自启设置失败:', error);
+      alert('保存开机自启设置失败');
+      // 恢复状态
+      setAutoLaunchEnabled(!autoLaunchEnabled);
     }
   }
 
@@ -466,6 +499,61 @@ export default function Settings() {
                     <li>启用自动更新后，应用会在启动时自动检查新版本</li>
                     <li>发现新版本时，应用会自动下载并提示安装</li>
                     <li>禁用后，您需要手动检查并安装更新</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card3D>
+      </div>
+
+      {/* 开机自启设置 */}
+      <div className="space-y-4">
+        <div className="text-center mb-4">
+          <h2 className="text-3xl font-bold font-heading mb-2 dark:text-white text-slate-900">
+            开机自启设置
+          </h2>
+          <p className="text-slate-400 dark:text-slate-400 text-slate-600">配置应用开机自动启动</p>
+        </div>
+
+        <Card3D className="p-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">开机自启</h3>
+              <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">允许应用在系统启动时自动运行</p>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="auto-launch-enabled"
+                  checked={autoLaunchEnabled}
+                  onChange={handleAutoLaunchChange}
+                  className="w-5 h-5 rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <label htmlFor="auto-launch-enabled" className="text-slate-700 dark:text-slate-300 cursor-pointer">
+                  启用开机自启
+                </label>
+              </div>
+
+              {autoLaunchSaved && (
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                  <Check className="w-4 h-4" />
+                  已保存
+                </div>
+              )}
+            </div>
+
+            <div className="bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-500/20 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-700 dark:text-blue-300">
+                  <p className="font-medium mb-1">注意事项：</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>启用后，应用会在系统启动时自动运行</li>
+                    <li>此功能仅在打包后的应用中可用</li>
+                    <li>您可以在系统设置中管理开机自启应用</li>
                   </ul>
                 </div>
               </div>
