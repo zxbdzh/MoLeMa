@@ -1,6 +1,6 @@
 <div align="center">
 
-![MoLeMa](https://github.com/zxbdzh/MoLeMa/blob/19cedda01f1047b992476180e9ef3641ebc1a159/icons/icon.png)
+<img src="https://github.com/zxbdzh/MoLeMa/blob/19cedda01f1047b992476180e9ef3641ebc1a159/icons/icon.png" width="128" height="128" />
 
 # 摸了吗
 
