@@ -524,13 +524,7 @@ async function setupAutoUpdater() {
     mainWindow?.webContents.send("update:not-available", {
       version: info.version,
     });
-    // 也向用户发送通知
-    dialog.showMessageBox({
-      type: "info",
-      title: "已是最新版本",
-      message: `当前版本 ${info.version} 已是最新版本`,
-      buttons: ["确定"],
-    });
+    // 移除对话框，静默模式
   });
 
     autoUpdater.on("error", (err) => {

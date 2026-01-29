@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { ExternalLink, Clock, Code, Globe, RefreshCw, Filter, Link, Plus, Trash2, Edit2, X, Check, Settings, Chrome, BookOpen, Monitor, FolderPlus, Edit3 } from 'lucide-react'
 import { Card3D } from './3DCard'
 import WebPageBrowser from './WebPageBrowser'
+import AlertDialog from './AlertDialog'
 
 type WebPageCategory = {
   id: number
@@ -46,6 +47,7 @@ export default function WebPages() {
 
   // 网页管理
   const [showWebPageManager, setShowWebPageManager] = useState(false)
+  const [showAddWebPageModal, setShowAddWebPageModal] = useState(false)
   const [webPagesList, setWebPagesList] = useState<WebPageItem[]>([])
   const [editingWebPage, setEditingWebPage] = useState<WebPageItem | null>(null)
   const [webPageForm, setWebPageForm] = useState<WebPageItem>({
@@ -57,9 +59,13 @@ export default function WebPages() {
   })
   const [testingWebPage, setTestingWebPage] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; error?: string; pageInfo?: any } | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [webPageToDelete, setWebPageToDelete] = useState<number | null>(null)
 
   // 分类管理
   const [showCategoryManager, setShowCategoryManager] = useState(false)
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState<WebPageCategory | null>(null)
   const [categoryForm, setCategoryForm] = useState<WebPageCategory>({
     id: 0,
@@ -69,6 +75,11 @@ export default function WebPages() {
     sort_order: 0
   })
   const [categoryWebPageCounts, setCategoryWebPageCounts] = useState<Map<number, number>>(new Map())
+  const [showDeleteCategoryConfirm, setShowDeleteCategoryConfirm] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<number | null>(null)
+
+  // 筛选弹窗
+  const [showFilterModal, setShowFilterModal] = useState(false)
 
   // 网页浏览器弹窗
   const [showWebBrowser, setShowWebBrowser] = useState(false)
@@ -225,6 +236,7 @@ export default function WebPages() {
       is_active: webPage.is_active || 0
     })
     setTestResult(null)
+    setShowAddWebPageModal(true)
   }
 
   // 分类管理功能
@@ -248,6 +260,7 @@ export default function WebPages() {
       color: category.color || '#3B82F6',
       sort_order: category.sort_order || 0
     })
+    setShowEditCategoryModal(true)
   }
 
   const handleSaveCategory = async () => {
@@ -258,9 +271,13 @@ export default function WebPages() {
       }
 
       if (editingCategory?.id) {
+        // 编辑模式
         await window.electronAPI?.webPages?.categories?.update(editingCategory.id, categoryForm)
+        setShowEditCategoryModal(false)
       } else {
+        // 添加模式
         await window.electronAPI?.webPages?.categories?.create(categoryForm)
+        setShowAddCategoryModal(false)
       }
       await fetchCategories()
       await fetchCategoryWebPageCounts()
@@ -279,29 +296,28 @@ export default function WebPages() {
   }
 
   const handleDeleteCategory = async (categoryId: number) => {
-    // 检查是否有关联网页
-    const webPageCount = categoryWebPageCounts.get(categoryId) || 0
 
-    if (webPageCount > 0) {
-      window.alert(`无法删除，该分类下还有 ${webPageCount} 个网页`)
-      return
-    }
+      // 检查是否有关联网页
 
-    if (window.confirm('确定要删除这个分类吗？删除后将无法恢复。')) {
-      try {
-        await window.electronAPI?.webPages?.categories?.delete(categoryId)
-        await fetchCategories()
-        await fetchCategoryWebPageCounts()
-        // 如果删除的是当前选中的分类，重置为全部
-        if (selectedCategory === categoryId.toString()) {
-          setSelectedCategory('all')
-        }
-      } catch (error) {
-        console.error('Failed to delete category:', error)
-        window.alert('删除分类失败')
+      const webPageCount = categoryWebPageCounts.get(categoryId) || 0
+
+  
+
+      if (webPageCount > 0) {
+
+        window.alert(`无法删除，该分类下还有 ${webPageCount} 个网页`)
+
+        return
+
       }
+
+  
+
+      setCategoryToDelete(categoryId)
+
+      setShowDeleteCategoryConfirm(true)
+
     }
-  }
 
   // 根据数据库中的分类和默认分类生成分类列表
   const getAllCategories = () => {
@@ -311,16 +327,19 @@ export default function WebPages() {
       icon: Globe // 默认图标，可以根据实际需求替换
     }))
 
-    // 如果数据库中有分类，使用数据库分类；否则使用默认分类
-    return dbCategories.length > 0 ? dbCategories : defaultCategories
+    // 始终在开头添加"全部"选项
+    return [
+      { id: 'all', label: '全部', icon: Globe },
+      ...dbCategories
+    ]
   }
 
   // 筛选网页
   const filteredWebPages = selectedCategory === 'all'
-    ? webPages
+    ? webPages.filter(item => item.is_active === 1)
     : webPages.filter(item => {
-        // 使用 category_id 进行精确匹配
-        return item.category_id === parseInt(selectedCategory)
+        // 使用 category_id 进行精确匹配，并且只显示已启用的网页
+        return item.category_id === parseInt(selectedCategory) && item.is_active === 1
       })
 
   const formatDate = (timestamp: number) => {
@@ -346,36 +365,46 @@ export default function WebPages() {
 
       <div className="mb-6">
         <div className="flex items-center gap-4 mb-4">
-          <Filter className="w-5 h-5 text-slate-400" />
-          <div className="flex gap-2 flex-wrap">
-            {getAllCategories().map((category) => {
-              const Icon = category.icon
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${
-                    selectedCategory === category.id
-                      ? 'bg-blue-600 dark:bg-primary text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 dark:text-slate-300 text-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {category.label}
-                </button>
-              )
-            })}
+          <div className="flex items-center gap-2">
+            <Filter
+              className="w-5 h-5 text-slate-400 cursor-pointer hover:text-blue-500 transition-colors"
+              onClick={() => setShowFilterModal(true)}
+              title="筛选分类"
+            />
+            <span className="text-sm text-slate-500 dark:text-slate-400">
+              {getAllCategories().find(c => c.id === selectedCategory)?.label || '全部'}
+            </span>
           </div>
           <button
             onClick={() => {
-              setShowWebPageManager(true)
-              setShowCategoryManager(false)
+              setShowAddWebPageModal(true)
               handleAddWebPage()
             }}
             className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-primary text-white rounded-lg hover:bg-blue-500 dark:hover:bg-primary/80 transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
+            添加网页
+          </button>
+          <button
+            onClick={() => {
+              setShowWebPageManager(true)
+              setShowCategoryManager(false)
+              fetchWebPagesList()
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+          >
+            <Settings className="w-4 h-4" />
             管理网页
+          </button>
+          <button
+            onClick={() => {
+              setShowAddCategoryModal(true)
+              handleAddCategory()
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-primary text-white rounded-lg hover:bg-blue-500 dark:hover:bg-primary/80 transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            添加分类
           </button>
           <button
             onClick={() => {
@@ -487,6 +516,133 @@ export default function WebPages() {
         </div>
       )}
 
+      {/* 独立的添加网页模态框 */}
+      {showAddWebPageModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <h2 className="text-2xl font-bold dark:text-white text-slate-900 flex items-center gap-3">
+                {editingWebPage?.id ? (
+                  <>
+                    <Edit2 className="w-6 h-6 text-blue-500" />
+                    编辑网页
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-6 h-6 text-blue-500" />
+                    添加网页
+                  </>
+                )}
+              </h2>
+              <button
+                onClick={() => setShowAddWebPageModal(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">网站名称</label>
+                    <input
+                      type="text"
+                      value={webPageForm.title}
+                      onChange={(e) => setWebPageForm({ ...webPageForm, title: e.target.value })}
+                      placeholder="网站名称"
+                      className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">分类</label>
+                    <select
+                      value={webPageForm.category_id?.toString() || ''}
+                      onChange={(e) => setWebPageForm({ ...webPageForm, category_id: parseInt(e.target.value) })}
+                      className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id.toString()}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">网站URL</label>
+                  <input
+                    type="text"
+                    value={webPageForm.url}
+                    onChange={(e) => setWebPageForm({ ...webPageForm, url: e.target.value })}
+                    placeholder="https://example.com"
+                    className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">描述（可选）</label>
+                  <input
+                    type="text"
+                    value={webPageForm.description}
+                    onChange={(e) => setWebPageForm({ ...webPageForm, description: e.target.value })}
+                    placeholder="网站描述"
+                    className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleTestWebPage}
+                    disabled={testingWebPage}
+                    className="flex-1 py-2 bg-slate-800 dark:bg-slate-800 bg-white border border-slate-300 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-slate-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {testingWebPage ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        测试中...
+                      </>
+                    ) : (
+                      '测试网站'
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleSaveWebPage()
+                      setShowAddWebPageModal(false)
+                    }}
+                    className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium text-white transition-colors cursor-pointer"
+                  >
+                    保存
+                  </button>
+                </div>
+
+                {testResult && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg">
+                    {testResult.success ? (
+                      <>
+                        <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        <span className="text-sm text-green-700 dark:text-green-300">
+                          {testResult.pageInfo?.title} - 网站可访问
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <X className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        <span className="text-sm text-red-700 dark:text-red-300">
+                          {testResult.error}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* 网页管理模态框 */}
       {showWebPageManager && createPortal(
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
@@ -505,104 +661,6 @@ export default function WebPages() {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              {/* 添加/编辑表单 */}
-              <div className="mb-6 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                <h3 className="text-lg font-bold mb-4 dark:text-white text-slate-900">
-                  {editingWebPage?.id ? '编辑网页' : '添加网页'}
-                </h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">网站名称</label>
-                      <input
-                        type="text"
-                        value={webPageForm.title}
-                        onChange={(e) => setWebPageForm({ ...webPageForm, title: e.target.value })}
-                        placeholder="网站名称"
-                        className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">分类</label>
-                      <select
-                        value={webPageForm.category_id?.toString() || ''}
-                        onChange={(e) => setWebPageForm({ ...webPageForm, category_id: parseInt(e.target.value) })}
-                        className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
-                      >
-                        {categories.map((cat) => (
-                          <option key={cat.id} value={cat.id.toString()}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">网站URL</label>
-                    <input
-                      type="text"
-                      value={webPageForm.url}
-                      onChange={(e) => setWebPageForm({ ...webPageForm, url: e.target.value })}
-                      placeholder="https://example.com"
-                      className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">描述（可选）</label>
-                    <input
-                      type="text"
-                      value={webPageForm.description}
-                      onChange={(e) => setWebPageForm({ ...webPageForm, description: e.target.value })}
-                      placeholder="网站描述"
-                      className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
-                    />
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleTestWebPage}
-                      disabled={testingWebPage}
-                      className="flex-1 py-2 bg-slate-800 dark:bg-slate-800 bg-white border border-slate-300 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-slate-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {testingWebPage ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          测试中...
-                        </>
-                      ) : (
-                        '测试网站'
-                      )}
-                    </button>
-                    <button
-                      onClick={handleSaveWebPage}
-                      className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium text-white transition-colors cursor-pointer"
-                    >
-                      保存
-                    </button>
-                  </div>
-
-                  {testResult && (
-                    <div className="flex items-center gap-2 p-3 rounded-lg">
-                      {testResult.success ? (
-                        <>
-                          <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
-                          <span className="text-sm text-green-700 dark:text-green-300">
-                            {testResult.pageInfo?.title} - 网站可访问
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <X className="w-4 h-4 text-red-600 dark:text-red-400" />
-                          <span className="text-sm text-red-700 dark:text-red-300">
-                            {testResult.error}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* 网页列表 */}
               <div>
                 <h3 className="text-lg font-bold mb-4 dark:text-white text-slate-900">已收藏的网页</h3>
@@ -651,7 +709,10 @@ export default function WebPages() {
                           <Edit2 className="w-4 h-4 text-slate-400" />
                         </button>
                         <button
-                          onClick={() => handleDeleteWebPage(webPage.id!)}
+                          onClick={() => {
+                            setWebPageToDelete(webPage.id!)
+                            setShowDeleteConfirm(true)
+                          }}
                           className="p-2 hover:bg-red-500/20 rounded-lg transition-colors cursor-pointer"
                           title="删除"
                         >
@@ -663,6 +724,159 @@ export default function WebPages() {
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 独立的添加分类模态框 */}
+      {showAddCategoryModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <h2 className="text-2xl font-bold dark:text-white text-slate-900 flex items-center gap-3">
+                <Plus className="w-6 h-6 text-blue-500" />
+                添加分类
+              </h2>
+              <button
+                onClick={() => setShowAddCategoryModal(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">分类名称</label>
+                  <input
+                    type="text"
+                    value={categoryForm.name}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                    placeholder="输入分类名称"
+                    className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">图标颜色</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={categoryForm.color}
+                        onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })}
+                        className="w-12 h-10 rounded cursor-pointer"
+                      />
+                      <span className="text-sm text-slate-500 dark:text-slate-500 text-slate-600">{categoryForm.color}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">排序</label>
+                    <input
+                      type="number"
+                      value={categoryForm.sort_order}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, sort_order: parseInt(e.target.value) })}
+                      min="0"
+                      className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowAddCategoryModal(false)}
+                    className="flex-1 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors cursor-pointer"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleSaveCategory()
+                      setShowAddCategoryModal(false)
+                    }}
+                    className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium text-white transition-colors cursor-pointer"
+                  >
+                    保存
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 独立的编辑分类模态框 */}
+      {showEditCategoryModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <h2 className="text-2xl font-bold dark:text-white text-slate-900 flex items-center gap-3">
+                <Edit2 className="w-6 h-6 text-blue-500" />
+                编辑分类
+              </h2>
+              <button
+                onClick={() => setShowEditCategoryModal(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">分类名称</label>
+                <input
+                  type="text"
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                  placeholder="输入分类名称"
+                  className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">图标颜色</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={categoryForm.color}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })}
+                      className="w-12 h-10 rounded cursor-pointer"
+                    />
+                    <span className="text-sm text-slate-500 dark:text-slate-500 text-slate-600">{categoryForm.color}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">排序</label>
+                  <input
+                    type="number"
+                    value={categoryForm.sort_order}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, sort_order: parseInt(e.target.value) })}
+                    min="0"
+                    className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowEditCategoryModal(false)}
+                  className="flex-1 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors cursor-pointer"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSaveCategory}
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium text-white transition-colors cursor-pointer"
+                >
+                  保存
+                </button>
               </div>
             </div>
           </div>
@@ -688,86 +902,9 @@ export default function WebPages() {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              {/* 添加/编辑分类表单 */}
-              <div className="mb-6 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                <h3 className="text-lg font-bold mb-4 dark:text-white text-slate-900">
-                  {editingCategory?.id ? '编辑分类' : '添加分类'}
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">分类名称</label>
-                    <input
-                      type="text"
-                      value={categoryForm.name}
-                      onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                      placeholder="输入分类名称"
-                      className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">图标颜色</label>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="color"
-                          value={categoryForm.color}
-                          onChange={(e) => setCategoryForm({ ...categoryForm, color: e.target.value })}
-                          className="w-12 h-10 rounded cursor-pointer"
-                        />
-                        <span className="text-sm text-slate-500 dark:text-slate-500 text-slate-600">{categoryForm.color}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 dark:text-slate-300 text-slate-700">排序</label>
-                      <input
-                        type="number"
-                        value={categoryForm.sort_order}
-                        onChange={(e) => setCategoryForm({ ...categoryForm, sort_order: parseInt(e.target.value) })}
-                        min="0"
-                        className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        setEditingCategory(null)
-                        setCategoryForm({
-                          id: 0,
-                          name: '',
-                          icon: 'folder',
-                          color: '#3B82F6',
-                          sort_order: categories.length
-                        })
-                      }}
-                      className="flex-1 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors cursor-pointer"
-                    >
-                      取消
-                    </button>
-                    <button
-                      onClick={handleSaveCategory}
-                      className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium text-white transition-colors cursor-pointer"
-                    >
-                      保存
-                    </button>
-                  </div>
-                </div>
-              </div>
-
               {/* 分类列表 */}
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold dark:text-white text-slate-900">分类列表</h3>
-                  <button
-                    onClick={handleAddCategory}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-primary text-white rounded-lg hover:bg-blue-500 dark:hover:bg-primary/80 transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    添加分类
-                  </button>
-                </div>
+                <h3 className="text-lg font-bold mb-4 dark:text-white text-slate-900">分类列表</h3>
                 {categories.length === 0 ? (
                   <div className="text-center py-8 text-slate-500 dark:text-slate-500 text-slate-600">
                     <FolderPlus className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -873,6 +1010,116 @@ export default function WebPages() {
           }}
           onClose={() => setShowWebBrowser(false)}
         />
+      )}
+
+      {/* 筛选弹窗 */}
+      {showFilterModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <h2 className="text-2xl font-bold dark:text-white text-slate-900 flex items-center gap-3">
+                <Filter className="w-6 h-6 text-blue-500" />
+                筛选分类
+              </h2>
+              <button
+                onClick={() => setShowFilterModal(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="space-y-2">
+                {getAllCategories().map((category) => {
+                  const Icon = category.icon
+                  return (
+                    <button
+                      key={category.id}
+                      onClick={() => {
+                        setSelectedCategory(category.id)
+                        setShowFilterModal(false)
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors cursor-pointer ${
+                        selectedCategory === category.id
+                          ? 'bg-blue-600 dark:bg-primary text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 dark:text-slate-300 text-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="flex-1 text-left">{category.label}</span>
+                      {selectedCategory === category.id && (
+                        <Check className="w-5 h-5" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 删除确认弹窗 */}
+      {showDeleteConfirm && createPortal(
+        <AlertDialog
+          isOpen={showDeleteConfirm}
+          type="warning"
+          title="确认删除"
+          message="确定要删除这个网页吗？删除后将无法恢复。"
+          onConfirm={async () => {
+            if (webPageToDelete) {
+              try {
+                await window.electronAPI?.webPages?.delete(webPageToDelete)
+                await fetchWebPagesList()
+                await fetchWebPages()
+              } catch (error) {
+                console.error('Failed to delete web page:', error)
+              }
+            }
+            setShowDeleteConfirm(false)
+            setWebPageToDelete(null)
+          }}
+          onCancel={() => {
+            setShowDeleteConfirm(false)
+            setWebPageToDelete(null)
+          }}
+        />,
+        document.body
+      )}
+
+      {/* 删除分类确认弹窗 */}
+      {showDeleteCategoryConfirm && createPortal(
+        <AlertDialog
+          isOpen={showDeleteCategoryConfirm}
+          type="warning"
+          title="确认删除"
+          message="确定要删除这个分类吗？删除后将无法恢复。"
+          onConfirm={async () => {
+            if (categoryToDelete) {
+              try {
+                await window.electronAPI?.webPages?.categories?.delete(categoryToDelete)
+                await fetchCategories()
+                await fetchCategoryWebPageCounts()
+                // 如果删除的是当前选中的分类，重置为全部
+                if (selectedCategory === categoryToDelete.toString()) {
+                  setSelectedCategory('all')
+                }
+              } catch (error) {
+                console.error('Failed to delete category:', error)
+                window.alert('删除分类失败')
+              }
+            }
+            setShowDeleteCategoryConfirm(false)
+            setCategoryToDelete(null)
+          }}
+          onCancel={() => {
+            setShowDeleteCategoryConfirm(false)
+            setCategoryToDelete(null)
+          }}
+        />,
+        document.body
       )}
     </div>
   )

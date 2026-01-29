@@ -4,6 +4,23 @@ import { Plus, Trash2, Save, Eye, EyeOff, Search, FileText, Calendar, Clock, Edi
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { Card3D } from './3DCard'
 
+// 窗口可见性监听器
+const useWindowVisibility = (callback: () => void) => {
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        callback()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [callback])
+}
+
 interface Note {
   id: number
   title: string
@@ -26,6 +43,11 @@ export default function Notes() {
   useEffect(() => {
     loadNotes()
   }, [])
+
+  // 窗口可见时自动刷新
+  useWindowVisibility(() => {
+    loadNotes()
+  })
 
   // 当选中的笔记改变时，更新编辑状态
   useEffect(() => {
@@ -76,12 +98,22 @@ export default function Notes() {
   const handleSaveNote = async () => {
     if (selectedNote && editTitle.trim()) {
       try {
+        // 调用 API 保存
         const result = await window.electronAPI?.notes?.update(selectedNote.id, {
           title: editTitle,
           content: editContent
         })
         
         if (result?.success) {
+          // 乐观更新：立即更新 selectedNote
+          setSelectedNote({
+            ...selectedNote,
+            title: editTitle,
+            content: editContent,
+            updated_at: Date.now()
+          })
+          
+          // 重新加载笔记列表（后台更新）
           await loadNotes()
           setIsEditing(false)
         }

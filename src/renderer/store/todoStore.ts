@@ -293,30 +293,35 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
   addTodo: async (text) => {
     // 去除前后空格
     const trimmedText = text.trim()
-    
+
     // 检查是否已存在相同的待办事项（忽略大小写）
     const existingTodo = get().todos.find(todo => todo.text.trim().toLowerCase() === trimmedText.toLowerCase())
     if (existingTodo) {
       alert('该待办事项已存在，请不要重复添加！')
       return
     }
-    
+
     if (!trimmedText) return
-    
+
     try {
       // 创建新待办事项，通过IPC调用数据库API
-      const newId = await window.electronAPI?.todos?.create({ text: trimmedText })
-      if (newId) {
+      const result = await window.electronAPI?.todos?.create({ text: trimmedText })
+      if (result?.success && result.id) {
         const newTodo = {
-          id: newId.toString(),
+          id: result.id.toString(),
           text: trimmedText,
           completed: false,
           createdAt: Date.now()
         }
-        const newTodos = [...get().todos, newTodo]
-        set({ todos: newTodos })
-        
-        // 重新加载待完成列表
+
+        // 同时更新 todos 和 pendingTodos，确保新待办立即显示在 UI 上
+        set(state => ({
+          todos: [...state.todos, newTodo],
+          pendingTodos: [...state.pendingTodos, newTodo],
+          completedTodos: state.completedTodos
+        }))
+
+        // 重新加载以确保与数据库一致
         get().loadPendingTodos()
       }
     } catch (error) {
@@ -328,30 +333,66 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
         completed: false,
         createdAt: Date.now()
       }
-      const newTodos = [...get().todos, newTodo]
-      set({ todos: newTodos })
+
+      // 降级时也要更新 pendingTodos
+      set(state => ({
+        todos: [...state.todos, newTodo],
+        pendingTodos: [...state.pendingTodos, newTodo],
+        completedTodos: state.completedTodos
+      }))
     }
   },
   
   toggleTodo: async (id) => {
+    const currentTodo = get().todos.find(t => t.id === id)
+    if (!currentTodo) return
+
+    const newCompleted = !currentTodo.completed
+
+    // 1. 完整的乐观更新：同时更新所有相关状态
+    set(state => {
+      const newTodos = state.todos.map(todo =>
+        todo.id === id ? { ...todo, completed: newCompleted } : todo
+      )
+
+      let newPendingTodos = [...state.pendingTodos]
+      let newCompletedTodos = [...state.completedTodos]
+
+      if (newCompleted) {
+        // 完成任务：从 pendingTodos 移到 completedTodos
+        newPendingTodos = newPendingTodos.filter(t => t.id !== id)
+        const movedTodo = newTodos.find(t => t.id === id)
+        if (movedTodo) {
+          newCompletedTodos.unshift(movedTodo)
+        }
+      } else {
+        // 取消完成：从 completedTodos 移到 pendingTodos
+        newCompletedTodos = newCompletedTodos.filter(t => t.id !== id)
+        const movedTodo = newTodos.find(t => t.id === id)
+        if (movedTodo) {
+          newPendingTodos.unshift(movedTodo)
+        }
+      }
+
+      return {
+        todos: newTodos,
+        pendingTodos: newPendingTodos,
+        completedTodos: newCompletedTodos
+      }
+    })
+
+    // 2. 异步调用 API 持久化
     try {
       await window.electronAPI?.todos?.toggle(parseInt(id))
-      const newTodos = get().todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-      set({ todos: newTodos })
-      
-      // 重新加载列表和统计
-      get().loadPendingTodos()
-      get().loadCompletedTodos()
+
+      // 3. 成功后，重新加载以确保数据一致性
+      await get().loadPendingTodos()
+      await get().loadCompletedTodos()
       get().loadCompletionStats()
     } catch (error) {
       console.error('Error toggling todo:', error)
-      // 降级到本地状态切换
-      const newTodos = get().todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-      set({ todos: newTodos })
+      // 显示错误提示，不自动回滚（数据库操作通常不会失败）
+      alert('操作失败，请刷新页面')
     }
   },
   
@@ -374,18 +415,35 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
   
   updateTodo: async (id, text) => {
     try {
-      await window.electronAPI?.todos?.update(parseInt(id), { text, completed: 0 })
-      const newTodos = get().todos.map((todo) =>
-        todo.id === id ? { ...todo, text } : todo
-      )
-      set({ todos: newTodos })
+      // 只更新文本，不改变完成状态
+      await window.electronAPI?.todos?.update(parseInt(id), { text })
+      
+      // 同步更新所有相关状态
+      set(state => ({
+        todos: state.todos.map(todo =>
+          todo.id === id ? { ...todo, text } : todo
+        ),
+        pendingTodos: state.pendingTodos.map(todo =>
+          todo.id === id ? { ...todo, text } : todo
+        ),
+        completedTodos: state.completedTodos.map(todo =>
+          todo.id === id ? { ...todo, text } : todo
+        )
+      }))
     } catch (error) {
       console.error('Error updating todo:', error)
       // 降级到本地状态更新
-      const newTodos = get().todos.map((todo) =>
-        todo.id === id ? { ...todo, text } : todo
-      )
-      set({ todos: newTodos })
+      set(state => ({
+        todos: state.todos.map(todo =>
+          todo.id === id ? { ...todo, text } : todo
+        ),
+        pendingTodos: state.pendingTodos.map(todo =>
+          todo.id === id ? { ...todo, text } : todo
+        ),
+        completedTodos: state.completedTodos.map(todo =>
+          todo.id === id ? { ...todo, text } : todo
+        )
+      }))
     }
   },
   

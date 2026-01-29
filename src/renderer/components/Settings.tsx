@@ -27,6 +27,11 @@ export default function Settings() {
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
   const [autoUpdateSaved, setAutoUpdateSaved] = useState(false);
 
+  // 应用更新
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded'>('idle')
+  const [updateInfo, setUpdateInfo] = useState<any>(null)
+  const [downloadProgress, setDownloadProgress] = useState(0)
+
   // 开机自启设置
   const [autoLaunchEnabled, setAutoLaunchEnabled] = useState(false);
   const [autoLaunchSaved, setAutoLaunchSaved] = useState(false);
@@ -57,6 +62,34 @@ export default function Settings() {
         setAutoLaunchEnabled(result.enabled);
       }
     });
+  }, [])
+
+  // 监听更新事件
+  useEffect(() => {
+    const unsubscribeAvailable = window.electronAPI?.updater?.onAvailable?.((info) => {
+      setUpdateInfo(info)
+      setUpdateStatus('available')
+    })
+
+    const unsubscribeNotAvailable = window.electronAPI?.updater?.onNotAvailable?.(() => {
+      setUpdateStatus('not-available')
+      setUpdateInfo(null)
+    })
+
+    const unsubscribeDownloaded = window.electronAPI?.updater?.onDownloaded?.(() => {
+      setUpdateStatus('downloaded')
+    })
+
+    const unsubscribeProgress = window.electronAPI?.updater?.onProgress?.((progress) => {
+      setDownloadProgress(progress.percent || 0)
+    })
+
+    return () => {
+      unsubscribeAvailable?.()
+      unsubscribeNotAvailable?.()
+      unsubscribeDownloaded?.()
+      unsubscribeProgress?.()
+    }
   }, [])
 
   const handleRecordShortcut = (key: keyof ShortcutConfig) => {
@@ -165,6 +198,33 @@ export default function Settings() {
     } catch (error) {
       console.error('保存自动更新设置失败:', error);
     }
+  }
+
+  // 应用更新函数
+  const handleCheckForUpdates = async () => {
+    try {
+      setUpdateStatus('checking')
+      setUpdateInfo(null)
+      await window.electronAPI?.updater?.checkForUpdates()
+    } catch (error) {
+      console.error('检查更新失败:', error)
+      setUpdateStatus('not-available')
+      setUpdateInfo(null)
+    }
+  }
+
+  const handleDownloadUpdate = async () => {
+    try {
+      setUpdateStatus('downloading')
+      await window.electronAPI?.updater?.downloadUpdate()
+    } catch (error) {
+      console.error('下载更新失败:', error)
+      setUpdateStatus('available')
+    }
+  }
+
+  const handleInstallUpdate = () => {
+    window.electronAPI?.updater?.quitAndInstall()
   }
 
   const handleAutoLaunchChange = async () => {
@@ -502,6 +562,88 @@ export default function Settings() {
                   </ul>
                 </div>
               </div>
+            </div>
+          </div>
+        </Card3D>
+
+        {/* 应用更新 */}
+        <Card3D className="p-6">
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">应用更新</h3>
+            <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">检查并安装应用更新</p>
+
+            {/* 版本信息 */}
+            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm dark:text-slate-300 text-slate-700">当前版本</span>
+                <span className="text-sm font-medium dark:text-white text-slate-900">v{window.electronAPI.versions.app}</span>
+              </div>
+              {updateInfo && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm dark:text-slate-300 text-slate-700">最新版本</span>
+                  <span className="text-sm font-medium dark:text-white text-slate-900">v{updateInfo.version}</span>
+                </div>
+              )}
+            </div>
+
+            {/* 更新状态提示 */}
+            {updateStatus === 'available' && (
+              <div className="bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-500/20 rounded-lg p-4">
+                <p className="text-sm dark:text-slate-300 text-slate-700">发现新版本 v{updateInfo?.version}</p>
+              </div>
+            )}
+
+            {updateStatus === 'downloading' && (
+              <div className="bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-500/20 rounded-lg p-4">
+                <p className="text-sm dark:text-slate-300 text-slate-700 mb-2">下载更新中... {downloadProgress}%</p>
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all" 
+                    style={{ width: `${downloadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {updateStatus === 'downloaded' && (
+              <div className="bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-500/20 rounded-lg p-4">
+                <p className="text-sm dark:text-slate-300 text-slate-700">更新已下载，点击下方按钮安装</p>
+              </div>
+            )}
+
+            {updateStatus === 'not-available' && (
+              <div className="bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-500/20 rounded-lg p-4">
+                <p className="text-sm dark:text-slate-300 text-slate-700">当前已是最新版本</p>
+              </div>
+            )}
+
+            {/* 操作按钮 */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleCheckForUpdates}
+                disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
+                className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-lg font-medium text-white transition-colors cursor-pointer"
+              >
+                {updateStatus === 'checking' ? '检查中...' : '检查更新'}
+              </button>
+              
+              {updateStatus === 'available' && (
+                <button
+                  onClick={handleDownloadUpdate}
+                  className="flex-1 py-2 bg-green-600 hover:bg-green-500 rounded-lg font-medium text-white transition-colors cursor-pointer"
+                >
+                  下载更新
+                </button>
+              )}
+              
+              {updateStatus === 'downloaded' && (
+                <button
+                  onClick={handleInstallUpdate}
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium text-white transition-colors cursor-pointer"
+                >
+                  安装更新
+                </button>
+              )}
             </div>
           </div>
         </Card3D>
