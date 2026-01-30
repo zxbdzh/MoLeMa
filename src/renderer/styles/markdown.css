@@ -394,13 +394,45 @@ html.dark .markdown-preview em {
   @apply line-through text-gray-500;
 }
 
-/* 行内代码优化 */
+/* 行内代码优化 - 添加 !important 确保样式不被覆盖 */
 .markdown-preview p > code,
 .markdown-preview li > code {
   @apply px-2 py-1 rounded text-sm font-mono;
-  background-color: var(--code-bg);
-  color: var(--code-text);
-  border: 1px solid var(--border-color);
+  background-color: var(--code-bg) !important;
+  color: var(--code-text) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+/* 覆盖所有可能的行内代码位置 - 更高特异性 */
+.markdown-preview p code,
+.markdown-preview li code,
+.markdown-preview td code,
+.markdown-preview th code,
+.markdown-preview strong code,
+.markdown-preview em code,
+.markdown-preview a code {
+  @apply px-2 py-1 rounded text-sm font-mono !important;
+  background-color: var(--code-bg) !important;
+  color: var(--code-text) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+/* 移除 Tailwind prose 添加的反引号 */
+.markdown-preview p code::before,
+.markdown-preview p code::after,
+.markdown-preview li code::before,
+.markdown-preview li code::after,
+.markdown-preview td code::before,
+.markdown-preview td code::after,
+.markdown-preview th code::before,
+.markdown-preview th code::after,
+.markdown-preview strong code::before,
+.markdown-preview strong code::after,
+.markdown-preview em code::before,
+.markdown-preview em code::after,
+.markdown-preview a code::before,
+.markdown-preview a code::after {
+  content: none !important;
 }
 
 /* 响应式优化 */

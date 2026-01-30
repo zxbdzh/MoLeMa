@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Trash2, Save, Eye, EyeOff, Search, FileText, Calendar, Clock, Edit2 } from 'lucide-react'
 import { useNotesStore, Note } from '../store/notesStore'
 import { Card3D } from './3DCard'
+import { MarkdownRenderer } from './MarkdownRenderer'
 
 // 窗口可见性监听器
 const useWindowVisibility = (callback: () => void) => {
@@ -92,18 +93,6 @@ export default function Notes() {
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp)
     return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' })
-  }
-
-  const renderMarkdown = (content: string) => {
-    let html = content
-      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-      .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-      .replace(/\*(.*)\*/gim, '<em>$1</em>')
-      .replace(/^\- (.*$)/gim, '<li>$1</li>')
-      .replace(/\n/gim, '<br>')
-    return html
   }
 
   const filteredNotes = notes.filter(note =>
@@ -241,10 +230,9 @@ export default function Notes() {
                   {showPreview && (
                     <div className="bg-white/5 dark:bg-white/5 bg-white/50 border border-white/10 dark:border-white/10 border-slate-200 rounded-lg p-4 overflow-y-auto custom-scrollbar">
                       <h1 className="text-2xl font-bold dark:text-white text-slate-900 mb-4">{selectedNote.title}</h1>
-                      <div
-                        className="dark:text-gray-200 text-slate-800 prose prose-invert max-w-none"
-                        dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedNote.content) }}
-                      />
+                      <div className="dark:text-gray-200 text-slate-800 prose prose-invert max-w-none">
+                        <MarkdownRenderer content={selectedNote.content} />
+                      </div>
                     </div>
                   )}
                 </div>

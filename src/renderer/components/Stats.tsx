@@ -30,6 +30,30 @@ function StatCard({ title, value, subtitle, icon, color }: StatCardProps) {
 export default function Stats() {
   const [timeDimension, setTimeDimension] = useState<TimeDimension>('day')
   const [showHistory, setShowHistory] = useState(false)
+  const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
+
+  // 监听主题变化
+  useEffect(() => {
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    }
+
+    // 使用 MutationObserver 监听 class 变化
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          checkTheme()
+        }
+      })
+    })
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+
+    return () => observer.disconnect()
+  }, [])
   
   const [appUsage, setAppUsage] = useState({
     today: 0,
@@ -168,7 +192,7 @@ export default function Stats() {
                     label={(entry) => `${((entry.percent || 0) * 100).toFixed(0)}%`}
                     fill="#8884d8"
                     dataKey="value"
-                    labelStyle={{ fontSize: 12, fontWeight: 600, fill: '#000000' }}
+                    labelStyle={{ fontSize: 12, fontWeight: 600, fill: isDark ? '#E5E7EB' : '#333333' }}
                   >
                     {pieData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -178,15 +202,15 @@ export default function Stats() {
                     verticalAlign="bottom"
                     height={36}
                     formatter={(value, entry) => (
-                      <span style={{ color: '#333', fontSize: 12, fontWeight: 500 }}>
+                      <span style={{ color: isDark ? '#E5E7EB' : '#333333', fontSize: 12, fontWeight: 500 }}>
                         {value}
                       </span>
                     )}
                   />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#000000', border: 'none', borderRadius: '8px', padding: '12px' }}
-                    labelStyle={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
-                    itemStyle={{ color: '#FFFFFF', fontSize: 13 }}
+                    contentStyle={{ backgroundColor: isDark ? '#1E293B' : '#FFFFFF', border: isDark ? 'none' : '1px solid #E2E8F0', borderRadius: '8px', padding: '12px' }}
+                    labelStyle={{ color: isDark ? '#FFFFFF' : '#333333', fontSize: 14, fontWeight: 600 }}
+                    itemStyle={{ color: isDark ? '#FFFFFF' : '#333333', fontSize: 13 }}
                     formatter={(value: number) => formatDuration(value)}
                   />
                 </PieChart>
@@ -204,13 +228,13 @@ export default function Stats() {
             {featureUsage.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={featureUsage}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="featureName" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#E2E8F0'} />
+                  <XAxis dataKey="featureName" stroke={isDark ? '#9CA3AF' : '#333333'} tick={{ fill: isDark ? '#9CA3AF' : '#333333' }} />
+                  <YAxis stroke={isDark ? '#9CA3AF' : '#333333'} tick={{ fill: isDark ? '#9CA3AF' : '#333333' }} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#000000', border: 'none', borderRadius: '8px', padding: '12px' }}
-                    labelStyle={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
-                    itemStyle={{ color: '#FFFFFF', fontSize: 13 }}
+                    contentStyle={{ backgroundColor: isDark ? '#1E293B' : '#FFFFFF', border: isDark ? 'none' : '1px solid #E2E8F0', borderRadius: '8px', padding: '12px' }}
+                    labelStyle={{ color: isDark ? '#FFFFFF' : '#333333', fontSize: 14, fontWeight: 600 }}
+                    itemStyle={{ color: isDark ? '#FFFFFF' : '#333333', fontSize: 13 }}
                     cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
                   />
                   <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
@@ -274,13 +298,13 @@ export default function Stats() {
                     <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="date" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} tickFormatter={(value) => formatDuration(value)} />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#E2E8F0'} />
+                <XAxis dataKey="date" stroke={isDark ? '#9CA3AF' : '#333333'} tick={{ fill: isDark ? '#9CA3AF' : '#333333' }} />
+                <YAxis stroke={isDark ? '#9CA3AF' : '#333333'} tick={{ fill: isDark ? '#9CA3AF' : '#333333' }} tickFormatter={(value) => formatDuration(value)} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#000000', border: 'none', borderRadius: '8px', padding: '12px' }}
-                  labelStyle={{ color: '#FFFFFF', fontSize: 14, fontWeight: 600 }}
-                  itemStyle={{ color: '#FFFFFF', fontSize: 13 }}
+                  contentStyle={{ backgroundColor: isDark ? '#1E293B' : '#FFFFFF', border: isDark ? 'none' : '1px solid #E2E8F0', borderRadius: '8px', padding: '12px' }}
+                  labelStyle={{ color: isDark ? '#FFFFFF' : '#333333', fontSize: 14, fontWeight: 600 }}
+                  itemStyle={{ color: isDark ? '#FFFFFF' : '#333333', fontSize: 13 }}
                   formatter={(value: number) => formatDuration(value)}
                 />
                 <Area type="monotone" dataKey="duration" stroke="#3B82F6" fillOpacity={1} fill="url(#colorDuration)" />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -15,8 +15,30 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
   className = ''
 }) => {
-  // 检测当前主题
-  const isDark = document.documentElement.classList.contains('dark');
+  const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
+
+  // 监听主题变化
+  useEffect(() => {
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    }
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          checkTheme()
+        }
+      })
+    })
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+
+    return () => observer.disconnect()
+  }, [])
+
   const codeTheme = isDark ? vscDarkPlus : oneLight;
 
   return (
@@ -31,9 +53,38 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             
             // 如果没有 language 类，说明是行内代码
             if (!match) {
+              console.log('Inline code detected:', { children, className, props });
               return <code {...props} className={className}>{children}</code>;
             }
-            
+
+            // 检查代码块是否为空（增强版，处理更多边界情况）
+            const codeContent = String(children).replace(/\n$/, '');
+
+            // 如果内容是字面字符串 "undefined"，也视为空
+            const isUndefinedLiteral = codeContent === 'undefined';
+            const isEmpty = !codeContent ||
+                           codeContent.trim() === '' ||
+                           isUndefinedLiteral ||
+                           /^\s*$/.test(codeContent);
+
+            if (isEmpty) {
+              console.log('Empty code block detected:', { codeContent, isUndefinedLiteral });
+              return (
+                <div style={{
+                  borderRadius: '0.5rem',
+                  margin: '1rem 0',
+                  backgroundColor: isDark ? '#1e1e1e' : '#f1f5f9',
+                  border: isDark ? '1px solid #3f3f46' : '1px solid #e2e8f0',
+                  padding: '1rem',
+                  fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                  color: isDark ? '#64748B' : '#94A3B8',
+                  fontSize: '14px'
+                }}>
+                  // 空代码块
+                </div>
+              );
+            }
+
             return (
               <SyntaxHighlighter
                 style={codeTheme}
@@ -52,7 +103,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
                   }
                 }}
               >
-                {String(children).replace(/\n$/, '')}
+                {codeContent}
               </SyntaxHighlighter>
             );
           },
