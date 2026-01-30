@@ -32,3 +32,29 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm dist:publish
+
+      - name: Send WeChat Notification
+        if: success()
+        run: |
+          $version = "${{ github.ref_name }}"
+          $repo = "${{ github.repository }}"
+          $runId = "${{ github.run_id }}"
+          $downloadUrl = "https://github.com/$repo/releases/tag/$version"
+          $buildUrl = "${{ github.server_url }}/$repo/actions/runs/$runId"
+          
+          $content = @"
+          <h2>🎉 发布成功</h2>
+          <p><strong>版本号：</strong>$version</p>
+          <p><strong>状态：</strong>✅ 构建和发布成功</p>
+          <p><strong>下载链接：</strong><a href="$downloadUrl">点击下载</a></p>
+          <p><strong>构建详情：</strong><a href="$buildUrl">查看构建日志</a></p>
+          "@
+          
+          $body = @{
+            token = "${{ secrets.PUSHPLUS_TOKEN }}"
+            title = "🎉 摸了吗 - 新版本发布成功"
+            content = $content
+            template = "html"
+          } | ConvertTo-Json
+          
+          Invoke-RestMethod -Uri "http://www.pushplus.plus/send" -Method Post -ContentType "application/json" -Body $body
