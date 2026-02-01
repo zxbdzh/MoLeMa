@@ -211,6 +211,26 @@ export interface ElectronAPI {
     };
   };
 
+  // 录音 API
+  recordings: {
+    getAll: (limit?: number, offset?: number) => Promise<{ success: boolean; recordings?: any[] }>;
+    getById: (id: number) => Promise<{ success: boolean; recording?: any }>;
+    create: (recording: any) => Promise<{ success: boolean; id?: number }>;
+    update: (id: number, recording: any) => Promise<{ success: boolean }>;
+    delete: (id: number) => Promise<{ success: boolean }>;
+    count: () => Promise<{ success: boolean; count?: number }>;
+    getStats: () => Promise<{ success: boolean; stats?: any }>;
+    saveFile: (fileName: string, fileData: ArrayBuffer, savePath?: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+    getSavePath: () => Promise<{ success: boolean; savePath?: string }>;
+    setSavePath: (savePath: string) => Promise<{ success: boolean }>;
+    getNamingPattern: () => Promise<{ success: boolean; pattern?: string }>;
+    setNamingPattern: (pattern: string) => Promise<{ success: boolean }>;
+    generateFileName: (prefix?: string) => Promise<{ success: boolean; fileName?: string }>;
+    getDefaultDevice: () => Promise<{ success: boolean; deviceId?: string }>;
+    setDefaultDevice: (deviceId: string) => Promise<{ success: boolean }>;
+    onToggle: (callback: () => void) => () => void;
+  };
+
   // 对话框
   dialog: {
     selectDirectory: () => Promise<{

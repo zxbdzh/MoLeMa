@@ -187,6 +187,19 @@ export const webPagesApi = {
    */
   create: (webPage: Omit<WebPage, 'id' | 'created_at' | 'updated_at'>): number => {
     const db = getDatabase();
+    
+    // 验证分类是否存在
+    if (webPage.category_id) {
+      const categoryExists = db.prepare(`
+        SELECT id FROM web_page_categories WHERE id = ?
+      `).get(webPage.category_id) as { id: number } | undefined;
+      
+      if (!categoryExists) {
+        console.error(`Category ${webPage.category_id} does not exist`);
+        throw new Error(`分类 ID ${webPage.category_id} 不存在`);
+      }
+    }
+    
     const now = Date.now();
     const result = db.prepare(`
       INSERT INTO web_pages (title, url, description, category_id, is_favorite, is_active, favicon, created_at, updated_at, view_count)
@@ -203,6 +216,7 @@ export const webPagesApi = {
       now,
       webPage.view_count || 0
     );
+    console.log(`Web page created with ID: ${result.lastInsertRowid}`);
     return result.lastInsertRowid as number;
   },
 
@@ -227,6 +241,17 @@ export const webPagesApi = {
       values.push(webPage.description);
     }
     if (webPage.category_id !== undefined) {
+      // 验证分类是否存在
+      if (webPage.category_id !== null) {
+        const categoryExists = db.prepare(`
+          SELECT id FROM web_page_categories WHERE id = ?
+        `).get(webPage.category_id) as { id: number } | undefined;
+        
+        if (!categoryExists) {
+          console.error(`Category ${webPage.category_id} does not exist`);
+          throw new Error(`分类 ID ${webPage.category_id} 不存在`);
+        }
+      }
       updates.push('category_id = ?');
       values.push(webPage.category_id);
     }

@@ -101,14 +101,22 @@ export function getCurrentDatabasePath(): string {
  * 初始化数据库表结构
  */
 function initializeSchema(database: Database.Database): void {
-  // 检查表是否已存在
-  const tables = database.prepare(`
+  // 检查所有核心表是否已存在
+  const requiredTables = ['notes', 'todos', 'web_pages', 'web_page_categories'];
+  const existingTables = database.prepare(`
     SELECT name FROM sqlite_master 
-    WHERE type='table' AND name='notes'
-  `).get() as { name: string } | undefined;
+    WHERE type='table' AND name IN (${requiredTables.map(() => '?').join(',')})
+  `).all(...requiredTables) as { name: string }[];
+
+  const allTablesExist = requiredTables.every(tableName => 
+    existingTables.some(table => table.name === tableName)
+  );
   
-  if (!tables) {
-    console.log('Creating database schema...');
+  if (!allTablesExist) {
+    console.log('Creating database schema (some tables missing)...');
+    console.log('Missing tables:', requiredTables.filter(tableName => 
+      !existingTables.some(table => table.name === tableName)
+    ));
     const schema = getSchemaSQL();
     database.exec(schema);
     console.log('Database schema created successfully');
@@ -116,7 +124,7 @@ function initializeSchema(database: Database.Database): void {
     console.log('Database schema already exists, checking for missing tables and columns...');
     
     // 检查是否所有必要的表都存在
-    const tablesToCheck = ['todos', 'web_pages', 'web_page_categories'];
+    const tablesToCheck = ['todos', 'web_pages', 'web_page_categories', 'news_categories', 'news_sources', 'news_items', 'favorites', 'settings', 'recordings', 'app_usage_stats', 'feature_usage_stats'];
     for (const tableName of tablesToCheck) {
       const tableExists = database.prepare(`
         SELECT name FROM sqlite_master 
@@ -387,6 +395,22 @@ function getSchemaSQL(): string {
     CREATE INDEX IF NOT EXISTS idx_feature_usage_month_key ON feature_usage_stats(month_key);
     CREATE INDEX IF NOT EXISTS idx_feature_usage_year_key ON feature_usage_stats(year_key);
     CREATE INDEX IF NOT EXISTS idx_feature_usage_started_at ON feature_usage_stats(started_at DESC);
+
+    -- 录音记录表
+    CREATE TABLE IF NOT EXISTS recordings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_name TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      duration INTEGER,
+      file_size INTEGER,
+      device_name TEXT,
+      device_id TEXT,
+      created_at INTEGER NOT NULL,
+      notes TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_recordings_created_at ON recordings(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_recordings_file_name ON recordings(file_name);
   `;
 }
 
@@ -394,59 +418,105 @@ function getSchemaSQL(): string {
  * 插入默认数据
  */
 export function seedDefaultData(database: Database.Database): void {
-  // 检查新闻分类是否已有数据
-  const newsCategoryCount = database.prepare('SELECT COUNT(*) as count FROM news_categories').get() as { count: number };
-
-  if (newsCategoryCount.count === 0) {
-    console.log('Seeding default news categories...');
-
-    // 插入默认新闻分类
-    const insertNewsCategory = database.prepare(`
-      INSERT INTO news_categories (name, icon, color, sort_order, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
-    const defaultNewsCategories = [
-      { name: '科技', icon: 'cpu', color: '#3B82F6', sort: 1 },
-      { name: '财经', icon: 'dollar', color: '#10B981', sort: 2 },
-      { name: '娱乐', icon: 'film', color: '#F59E0B', sort: 3 },
-      { name: '体育', icon: 'trophy', color: '#EF4444', sort: 4 },
-      { name: '国际', icon: 'globe', color: '#8B5CF6', sort: 5 }
-    ];
-
-    for (const cat of defaultNewsCategories) {
-      insertNewsCategory.run(cat.name, cat.icon, cat.color, cat.sort, Date.now());
+  // 验证必要表是否存在
+  const requiredTables = ['news_categories', 'web_page_categories'];
+  
+  for (const tableName of requiredTables) {
+    const tableExists = database.prepare(`
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name=?
+    `).get(tableName) as { name: string } | undefined;
+    
+    if (!tableExists) {
+      console.error(`Table ${tableName} does not exist, cannot seed default data`);
+      console.error('Attempting to create missing table...');
+      // 尝试创建缺失的表
+      try {
+        const tableSchema = getSchemaSQL().split(';').find(statement => 
+          statement.toLowerCase().includes(`create table if not exists ${tableName}`)
+        );
+        if (tableSchema) {
+          database.exec(tableSchema + ';');
+          console.log(`Table ${tableName} created successfully`);
+        } else {
+          throw new Error(`Could not find schema for table ${tableName}`);
+        }
+      } catch (error) {
+        console.error(`Failed to create table ${tableName}:`, error);
+        throw new Error(`Cannot seed default data: table ${tableName} missing and cannot be created`);
+      }
     }
+  }
 
-    console.log('Default news categories seeded');
+  // 检查新闻分类是否已有数据
+  try {
+    const newsCategoryCount = database.prepare('SELECT COUNT(*) as count FROM news_categories').get() as { count: number };
+
+    if (newsCategoryCount.count === 0) {
+      console.log('Seeding default news categories...');
+
+      // 插入默认新闻分类
+      const insertNewsCategory = database.prepare(`
+        INSERT INTO news_categories (name, icon, color, sort_order, created_at)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+
+      const defaultNewsCategories = [
+        { name: '科技', icon: 'cpu', color: '#3B82F6', sort: 1 },
+        { name: '财经', icon: 'dollar', color: '#10B981', sort: 2 },
+        { name: '娱乐', icon: 'film', color: '#F59E0B', sort: 3 },
+        { name: '体育', icon: 'trophy', color: '#EF4444', sort: 4 },
+        { name: '国际', icon: 'globe', color: '#8B5CF6', sort: 5 }
+      ];
+
+      for (const cat of defaultNewsCategories) {
+        insertNewsCategory.run(cat.name, cat.icon, cat.color, cat.sort, Date.now());
+      }
+
+      console.log('Default news categories seeded successfully');
+    } else {
+      console.log(`Found ${newsCategoryCount.count} news categories, skipping seeding`);
+    }
+  } catch (error) {
+    console.error('Failed to check or seed news categories:', error);
+    throw error;
   }
 
   // 检查网页分类是否已有数据
-  const webPageCategoryCount = database.prepare('SELECT COUNT(*) as count FROM web_page_categories').get() as { count: number };
+  try {
+    const webPageCategoryCount = database.prepare('SELECT COUNT(*) as count FROM web_page_categories').get() as { count: number };
 
-  if (webPageCategoryCount.count === 0) {
-    console.log('Seeding default web page categories...');
+    if (webPageCategoryCount.count === 0) {
+      console.log('Seeding default web page categories...');
 
-    // 插入默认网页分类
-    const insertWebPageCategory = database.prepare(`
-      INSERT INTO web_page_categories (name, icon, color, sort_order, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `);
+      // 插入默认网页分类
+      const insertWebPageCategory = database.prepare(`
+        INSERT INTO web_page_categories (name, icon, color, sort_order, created_at)
+        VALUES (?, ?, ?, ?, ?)
+      `);
 
-    const defaultWebPageCategories = [
-      { name: '工作', icon: 'briefcase', color: '#3B82F6', sort: 1 },
-      { name: '学习', icon: 'book', color: '#10B981', sort: 2 },
-      { name: '工具', icon: 'wrench', color: '#F59E0B', sort: 3 },
-      { name: '娱乐', icon: 'gamepad', color: '#EF4444', sort: 4 },
-      { name: '其他', icon: 'folder', color: '#8B5CF6', sort: 5 }
-    ];
+      const defaultWebPageCategories = [
+        { name: '工作', icon: 'briefcase', color: '#3B82F6', sort: 1 },
+        { name: '学习', icon: 'book', color: '#10B981', sort: 2 },
+        { name: '工具', icon: 'wrench', color: '#F59E0B', sort: 3 },
+        { name: '娱乐', icon: 'gamepad', color: '#EF4444', sort: 4 },
+        { name: '其他', icon: 'folder', color: '#8B5CF6', sort: 5 }
+      ];
 
-    for (const cat of defaultWebPageCategories) {
-      insertWebPageCategory.run(cat.name, cat.icon, cat.color, cat.sort, Date.now());
+      for (const cat of defaultWebPageCategories) {
+        insertWebPageCategory.run(cat.name, cat.icon, cat.color, cat.sort, Date.now());
+      }
+
+      console.log('Default web page categories seeded successfully');
+    } else {
+      console.log(`Found ${webPageCategoryCount.count} web page categories, skipping seeding`);
     }
-
-    console.log('Default web page categories seeded');
+  } catch (error) {
+    console.error('Failed to check or seed web page categories:', error);
+    throw error;
   }
+  
+  console.log('Default data seeding completed');
 }
 
 /**

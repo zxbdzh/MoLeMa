@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Link,
+  Mic,
 } from "lucide-react";
 import iconPng from './assets/icon.png'; // 导入图标文件
 import Tooltip from "./components/Tooltip";
@@ -30,8 +31,9 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import AlertDialog from "./components/AlertDialog";
 import { ToastProvider } from "./components/Toast";
 import { useRSSStore } from "./store/rssStore";
+import { AudioRecorder } from "./components/AudioRecorder";
 
-type TabType = "home" | "rss" | "notes" | "todo" | "webpages" | "settings";
+type TabType = "home" | "rss" | "notes" | "todo" | "webpages" | "recording" | "settings";
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>("home");
@@ -337,6 +339,11 @@ function App() {
       label: "网页收藏",
     },
     {
+      id: "recording" as TabType,
+      icon: <Mic className="w-5 h-5" />,
+      label: "录音",
+    },
+    {
       id: "settings" as TabType,
       icon: <SettingsIcon className="w-5 h-5" />,
       label: "设置",
@@ -621,6 +628,7 @@ function App() {
               {activeTab === "notes" && <Notes />}
               {activeTab === "todo" && <TodoList />}
               {activeTab === "webpages" && <WebPages />}
+              {activeTab === "recording" && <AudioRecorder />}
               {activeTab === "settings" && <Settings />}
             </motion.div>
           </AnimatePresence>

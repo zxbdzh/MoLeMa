@@ -90,6 +90,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/react-syntax-highlighter": "^15.5.13",
     "animejs": "^4.2.2",
+    "audiobuffer-to-wav": "^1.0.0",
     "better-sqlite3": "^12.5.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",

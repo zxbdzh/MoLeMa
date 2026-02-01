@@ -283,6 +283,30 @@ contextBridge.exposeInMainWorld("electronAPI", {
     getEnabled: () => ipcRenderer.invoke("autoLaunch:getEnabled"),
     setEnabled: (enabled: boolean) => ipcRenderer.invoke("autoLaunch:setEnabled", enabled),
   },
+
+  // 录音 API
+  recordings: {
+    getAll: (limit?: number, offset?: number) => ipcRenderer.invoke("recordings:getAll", limit, offset),
+    getById: (id: number) => ipcRenderer.invoke("recordings:getById", id),
+    create: (recording: any) => ipcRenderer.invoke("recordings:create", recording),
+    update: (id: number, recording: any) => ipcRenderer.invoke("recordings:update", id, recording),
+    delete: (id: number) => ipcRenderer.invoke("recordings:delete", id),
+    count: () => ipcRenderer.invoke("recordings:count"),
+    getStats: () => ipcRenderer.invoke("recordings:getStats"),
+    saveFile: (fileName: string, fileData: ArrayBuffer, savePath?: string) => ipcRenderer.invoke("recordings:saveFile", fileName, fileData, savePath),
+    getSavePath: () => ipcRenderer.invoke("recordings:getSavePath"),
+    setSavePath: (savePath: string) => ipcRenderer.invoke("recordings:setSavePath", savePath),
+    getNamingPattern: () => ipcRenderer.invoke("recordings:getNamingPattern"),
+    setNamingPattern: (pattern: string) => ipcRenderer.invoke("recordings:setNamingPattern", pattern),
+    generateFileName: (prefix?: string) => ipcRenderer.invoke("recordings:generateFileName", prefix),
+    getDefaultDevice: () => ipcRenderer.invoke("recordings:getDefaultDevice"),
+    setDefaultDevice: (deviceId: string) => ipcRenderer.invoke("recordings:setDefaultDevice", deviceId),
+    onToggle: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on("recording:toggle", listener);
+      return () => ipcRenderer.removeListener("recording:toggle", listener);
+    },
+  },
 });
 
 // 类型声明（仅用于开发时的类型提示，不会被编译到最终代码中）

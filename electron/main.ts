@@ -46,6 +46,7 @@ import { notesApi } from "./api/notesApi";
 import { todosApi } from "./api/todosApi";
 import { newsApi } from "./api/newsApi";
 import { webPagesApi } from "./api/webPagesApi";
+import { recordingsApi } from "./api/recordingsApi";
 import { usageStatsApi } from "./api/usageStatsApi";
 import { testRSSFeed } from "./services/rssFetcher";
 import { testWebsiteNews } from "./services/websiteNewsFetcher";
@@ -69,12 +70,16 @@ let isWindowFocused: boolean = false;
 interface StoreData {
   shortcuts: {
     toggleWindow: string;
+    toggleRecording?: string;
   };
   closeBehavior: "minimize" | "quit";
   notes: any[];
   todos: any[];
   rssFeeds: Record<string, any>;
   favorites: any[];
+  recordingSavePath?: string;
+  recordingNamingPattern?: string;
+  recordingDefaultDeviceId?: string;
 
   [key: string]: any;
 }
@@ -85,8 +90,11 @@ const store = new Store<StoreData>({
   defaults: {
     shortcuts: {
       toggleWindow: "CommandOrControl+Alt+M",
+      toggleRecording: "CommandOrControl+Shift+R",
     },
     closeBehavior: "minimize", // 可选: 'minimize' (最小化到托盘) 或 'quit' (直接退出)
+    recordingNamingPattern: "recording_{datetime}",
+    recordingSavePath: undefined, // 使用默认路径
     notes: [],
     todos: [],
     rssFeeds: {},
@@ -419,8 +427,18 @@ function registerGlobalShortcuts() {
     toggleWindow();
   });
 
+  // 注册录音切换快捷键
+  if (shortcuts.toggleRecording) {
+    globalShortcut.register(shortcuts.toggleRecording, () => {
+      mainWindow?.webContents.send('recording:toggle');
+    });
+  }
+
   console.log("全局快捷键已注册");
   console.log(`  ${shortcuts.toggleWindow}: 显示/隐藏窗口`);
+  if (shortcuts.toggleRecording) {
+    console.log(`  ${shortcuts.toggleRecording}: 录音切换`);
+  }
 }
 
 // ==================== 自动更新功能 ====================
@@ -607,16 +625,49 @@ function setAutoUpdateEnabled(enabled: boolean) {
 
 // ==================== 应用启动 ====================
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // 设置应用版本信息
   process.versions.app = packageJson.version;
 
-  // 初始化数据库
-  const db = getDatabase();
-  seedDefaultData(db);
+  try {
+    console.log('=== Initializing Application ===');
+    
+    // 初始化数据库
+    console.log('Step 1: Initializing database...');
+    const db = getDatabase();
+    console.log('  - Database initialized successfully');
 
-  // 运行数据迁移（从 JSON 到 SQLite）
-  runMigration();
+    // 插入默认数据（带验证）
+    console.log('Step 2: Seeding default data...');
+    seedDefaultData(db);
+    console.log('  - Default data seeded successfully');
+
+    // 验证分类表是否有数据
+    console.log('Step 3: Verifying category tables...');
+    const webPageCategoryCount = db.prepare('SELECT COUNT(*) as count FROM web_page_categories').get() as { count: number };
+    const newsCategoryCount = db.prepare('SELECT COUNT(*) as count FROM news_categories').get() as { count: number };
+    console.log(`  - Web page categories: ${webPageCategoryCount.count}`);
+    console.log(`  - News categories: ${newsCategoryCount.count}`);
+
+    if (webPageCategoryCount.count === 0) {
+      console.warn('Warning: No web page categories found! Users will not be able to add web pages.');
+    }
+
+    // 运行数据迁移（从 JSON 到 SQLite）
+    console.log('Step 4: Running data migration...');
+    runMigration();
+    console.log('  - Data migration completed');
+
+    // 创建使用统计表
+    console.log('Step 5: Creating usage stats tables...');
+    createUsageStatsTables();
+    console.log('  - Usage stats tables created');
+
+    console.log('=== Initialization Complete ===');
+  } catch (error) {
+    console.error('Failed to initialize application:', error);
+    dialog.showErrorBox('初始化失败', `应用初始化失败: ${error instanceof Error ? error.message : '未知错误'}`);
+  }
 
   // 创建使用统计表
   createUsageStatsTables();
@@ -812,7 +863,7 @@ ipcMain.handle("rss:getFeed", async (_event, url: string) => {
 
 // 快捷键管理
 const getShortcuts = () => {
-  return store.get("shortcuts") as { toggleWindow: string };
+  return store.get("shortcuts") as StoreData["shortcuts"];
 };
 
 const setShortcuts = (shortcuts: any) => {
@@ -832,6 +883,13 @@ ipcMain.handle("shortcuts:set", async (_event, shortcuts) => {
     globalShortcut.register(shortcuts.toggleWindow, () => {
       toggleWindow();
     });
+
+    // 注册录音切换快捷键
+    if (shortcuts.toggleRecording) {
+      globalShortcut.register(shortcuts.toggleRecording, () => {
+        mainWindow?.webContents.send('recording:toggle');
+      });
+    }
 
     setShortcuts(shortcuts);
     console.log("快捷键已更新:", shortcuts);
@@ -2241,6 +2299,216 @@ ipcMain.handle("webPages:test", async (_event, url: string) => {
       success: false,
       error: error instanceof Error ? error.message : "测试失败",
     };
+  }
+});
+
+// ==================== 录音相关 IPC 处理器 ====================
+
+// 获取所有录音记录
+ipcMain.handle("recordings:getAll", (_event, limit?: number, offset?: number) => {
+  try {
+    return { success: true, recordings: recordingsApi.getAll(limit, offset) };
+  } catch (error) {
+    console.error("Failed to get recordings:", error);
+    return { success: false, error: "Failed to get recordings" };
+  }
+});
+
+// 根据 ID 获取录音
+ipcMain.handle("recordings:getById", (_event, id: number) => {
+  try {
+    const recording = recordingsApi.getById(id);
+    if (recording) {
+      return { success: true, recording };
+    } else {
+      return { success: false, error: "Recording not found" };
+    }
+  } catch (error) {
+    console.error("Failed to get recording:", error);
+    return { success: false, error: "Failed to get recording" };
+  }
+});
+
+// 创建录音记录
+ipcMain.handle("recordings:create", (_event, recording: any) => {
+  try {
+    const id = recordingsApi.create(recording);
+    return { success: true, id };
+  } catch (error) {
+    console.error("Failed to create recording:", error);
+    return { success: false, error: "Failed to create recording" };
+  }
+});
+
+// 更新录音记录
+ipcMain.handle("recordings:update", (_event, id: number, recording: any) => {
+  try {
+    const success = recordingsApi.update(id, recording);
+    return { success };
+  } catch (error) {
+    console.error("Failed to update recording:", error);
+    return { success: false, error: "Failed to update recording" };
+  }
+});
+
+// 删除录音记录
+ipcMain.handle("recordings:delete", (_event, id: number) => {
+  try {
+    const success = recordingsApi.delete(id);
+    return { success };
+  } catch (error) {
+    console.error("Failed to delete recording:", error);
+    return { success: false, error: "Failed to delete recording" };
+  }
+});
+
+// 获取录音总数
+ipcMain.handle("recordings:count", () => {
+  try {
+    const count = recordingsApi.count();
+    return { success: true, count };
+  } catch (error) {
+    console.error("Failed to get recording count:", error);
+    return { success: false, error: "Failed to get recording count" };
+  }
+});
+
+// 获取录音统计信息
+ipcMain.handle("recordings:getStats", () => {
+  try {
+    const stats = recordingsApi.getStats();
+    return { success: true, stats };
+  } catch (error) {
+    console.error("Failed to get recording stats:", error);
+    return { success: false, error: "Failed to get recording stats" };
+  }
+});
+
+// 获取录音保存路径
+ipcMain.handle("recordings:getSavePath", () => {
+  try {
+    const savePath = store.get('recordingSavePath') as string | undefined;
+    return { success: true, savePath };
+  } catch (error) {
+    console.error("Failed to get recording save path:", error);
+    return { success: false, error: "Failed to get recording save path" };
+  }
+});
+
+// 设置录音保存路径
+ipcMain.handle("recordings:setSavePath", (_event, savePath: string) => {
+  try {
+    store.set('recordingSavePath', savePath);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to set recording save path:", error);
+    return { success: false, error: "Failed to set recording save path" };
+  }
+});
+
+// 获取录音命名规则
+ipcMain.handle("recordings:getNamingPattern", () => {
+  try {
+    const pattern = store.get('recordingNamingPattern') as string | undefined;
+    return { success: true, pattern };
+  } catch (error) {
+    console.error("Failed to get recording naming pattern:", error);
+    return { success: false, error: "Failed to get recording naming pattern" };
+  }
+});
+
+// 设置录音命名规则
+ipcMain.handle("recordings:setNamingPattern", (_event, pattern: string) => {
+  try {
+    store.set('recordingNamingPattern', pattern);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to set recording naming pattern:", error);
+    return { success: false, error: "Failed to set recording naming pattern" };
+  }
+});
+
+// 生成录音文件名
+ipcMain.handle("recordings:generateFileName", (_event, prefix?: string) => {
+  try {
+    const pattern = store.get('recordingNamingPattern') as string || 'recording_{datetime}';
+    const now = new Date();
+    
+    // 格式化日期时间
+    const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '');
+    const datetimeStr = `${dateStr}-${timeStr}`;
+    
+    // 替换占位符
+    let fileName = pattern
+      .replace('{prefix}', prefix || 'recording')
+      .replace('{date}', dateStr)
+      .replace('{time}', timeStr)
+      .replace('{datetime}', datetimeStr);
+    
+    // 确保文件名以 .wav 结尾
+    if (!fileName.endsWith('.wav')) {
+      fileName += '.wav';
+    }
+    
+    return { success: true, fileName };
+  } catch (error) {
+    console.error("Failed to generate recording file name:", error);
+    return { success: false, error: "Failed to generate recording file name" };
+  }
+});
+
+// 获取默认麦克风设备
+ipcMain.handle("recordings:getDefaultDevice", () => {
+  try {
+    const deviceId = store.get('recordingDefaultDeviceId') as string | undefined;
+    return { success: true, deviceId };
+  } catch (error) {
+    console.error("Failed to get default recording device:", error);
+    return { success: false, error: "Failed to get default recording device" };
+  }
+});
+
+// 设置默认麦克风设备
+ipcMain.handle("recordings:setDefaultDevice", (_event, deviceId: string) => {
+  try {
+    store.set('recordingDefaultDeviceId', deviceId);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to set default recording device:", error);
+    return { success: false, error: "Failed to set default recording device" };
+  }
+});
+
+// 保存录音文件到磁盘
+ipcMain.handle("recordings:saveFile", async (_event, fileName: string, fileData: ArrayBuffer, savePath?: string) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    // 如果没有指定保存路径，使用用户数据目录下的 recordings 文件夹
+    let targetPath = savePath;
+    if (!targetPath) {
+      targetPath = path.join(app.getPath('userData'), 'recordings');
+    }
+    
+    // 确保目录存在
+    if (!fs.existsSync(targetPath)) {
+      fs.mkdirSync(targetPath, { recursive: true });
+    }
+    
+    // 完整文件路径
+    const fullPath = path.join(targetPath, fileName);
+    
+    // 写入文件
+    const buffer = Buffer.from(fileData);
+    fs.writeFileSync(fullPath, buffer);
+    
+    console.log(`Recording file saved to: ${fullPath}`);
+    return { success: true, filePath: fullPath };
+  } catch (error) {
+    console.error("Failed to save recording file:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to save recording file" };
   }
 });
 

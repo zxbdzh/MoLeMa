@@ -40,6 +40,16 @@ export default function Settings() {
     const [autoLaunchEnabled, setAutoLaunchEnabled] = useState(false);
     const [autoLaunchSaved, setAutoLaunchSaved] = useState(false);
 
+    // 录音设置状态
+    const [recordingSavePath, setRecordingSavePath] = useState('');
+    const [recordingPathSaved, setRecordingPathSaved] = useState(false);
+    const [recordingNamingPattern, setRecordingNamingPattern] = useState('recording_{datetime}');
+    const [recordingPatternSaved, setRecordingPatternSaved] = useState(false);
+    const [toggleRecordingShortcut, setToggleRecordingShortcut] = useState('');
+    const [recordingShortcutRecording, setRecordingShortcutRecording] = useState(false);
+    const [recordingShortcutSaved, setRecordingShortcutSaved] = useState(false);
+    const [isRecordingShortcut, setIsRecordingShortcut] = useState(false);
+
     useEffect(() => {
         window.electronAPI?.shortcuts?.get().then((config) => {
             if (config) {
@@ -72,6 +82,27 @@ export default function Settings() {
             if (result?.success && result.config) {
                 setProxyUrl(result.config.url || '');
                 setProxyEnabled(result.config.enabled);
+            }
+        });
+
+        // 获取录音设置状态
+        window.electronAPI?.recordings?.getSavePath().then((result) => {
+            if (result?.success) {
+                setRecordingSavePath(result.savePath || '');
+            }
+        });
+
+        window.electronAPI?.recordings?.getNamingPattern().then((result) => {
+            if (result?.success) {
+                setRecordingNamingPattern(result.pattern || 'recording_{datetime}');
+            }
+        });
+
+        window.electronAPI?.shortcuts?.get().then((config) => {
+            if (config?.toggleRecording) {
+                setToggleRecordingShortcut(config.toggleRecording);
+            } else {
+                setToggleRecordingShortcut('CommandOrControl+Shift+R');
             }
         });
     }, [])
@@ -260,6 +291,92 @@ export default function Settings() {
             setAutoLaunchEnabled(!autoLaunchEnabled);
         }
     }
+
+    // 录音设置处理函数
+    const handleSelectRecordingSavePath = async () => {
+        try {
+            const result = await window.electronAPI?.dialog?.selectDirectory();
+            if (result?.success && result.path) {
+                setRecordingSavePath(result.path);
+                const saveResult = await window.electronAPI?.recordings?.setSavePath(result.path);
+                if (saveResult?.success) {
+                    setRecordingPathSaved(true);
+                    setTimeout(() => setRecordingPathSaved(false), 2000);
+                }
+            }
+        } catch (error) {
+            console.error('选择保存路径失败:', error);
+            alert('选择保存路径失败');
+        }
+    };
+
+    const handleRecordingNamingPatternChange = async (pattern: string) => {
+        try {
+            setRecordingNamingPattern(pattern);
+            const result = await window.electronAPI?.recordings?.setNamingPattern(pattern);
+            if (result?.success) {
+                setRecordingPatternSaved(true);
+                setTimeout(() => setRecordingPatternSaved(false), 2000);
+            }
+        } catch (error) {
+            console.error('保存命名规则失败:', error);
+            alert('保存命名规则失败');
+        }
+    };
+
+    const handleRecordRecordingShortcut = () => {
+        if (isRecordingShortcut) return;
+        setRecordingShortcutRecording(true);
+        setIsRecordingShortcut(true);
+    };
+
+    const handleRecordingShortcutKeyDown = (e: React.KeyboardEvent) => {
+        if (!recordingShortcutRecording) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const modifiers: string[] = [];
+        if (e.ctrlKey || e.metaKey) modifiers.push('CommandOrControl');
+        if (e.altKey) modifiers.push('Alt');
+        if (e.shiftKey) modifiers.push('Shift');
+        
+        const keyName = e.key.toUpperCase();
+        
+        // 过滤无效的键
+        if (keyName === 'SHIFT' || keyName === 'CONTROL' || keyName === 'ALT' || keyName === 'META') {
+            return;
+        }
+        
+        const shortcut = [...modifiers, keyName].join('+');
+        
+        setToggleRecordingShortcut(shortcut);
+        setRecordingShortcutRecording(false);
+        setIsRecordingShortcut(false);
+        saveRecordingShortcuts();
+    };
+
+    const saveRecordingShortcuts = async () => {
+        try {
+            const result = await window.electronAPI?.shortcuts?.set({
+                ...shortcuts,
+                toggleRecording: toggleRecordingShortcut
+            });
+            
+            if (result?.success) {
+                setRecordingShortcutSaved(true);
+                setTimeout(() => setRecordingShortcutSaved(false), 2000);
+            }
+        } catch (error) {
+            console.error('保存录音快捷键失败:', error);
+            alert('保存录音快捷键失败');
+        }
+    };
+
+    const handleResetRecordingShortcut = () => {
+        setToggleRecordingShortcut('CommandOrControl+Shift+R');
+        saveRecordingShortcuts();
+    };
 
     return (
         <div className="space-y-6">
@@ -733,6 +850,117 @@ export default function Settings() {
                                         <li>您可以在系统设置中管理开机自启应用</li>
                                     </ul>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </Card3D>
+
+                {/* 录音设置 */}
+                <div className="text-center mb-4">
+                    <h2 className="text-3xl font-bold font-heading mb-2 dark:text-white text-slate-900">
+                        录音设置
+                    </h2>
+                    <p className="text-slate-400 dark:text-slate-400 text-slate-600">配置录音功能的参数</p>
+                </div>
+
+                <Card3D className="p-6">
+                    <div className="space-y-6">
+                        {/* 保存路径 */}
+                        <div>
+                            <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">保存路径</h3>
+                            <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">设置录音文件的保存目录</p>
+                            
+                            <div className="mt-3 flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={recordingSavePath || ''}
+                                    readOnly
+                                    placeholder="默认保存路径"
+                                    className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white"
+                                />
+                                <button
+                                    onClick={handleSelectRecordingSavePath}
+                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                                >
+                                    选择目录
+                                </button>
+                            </div>
+                            {recordingPathSaved && (
+                                <div className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                                    <Check className="w-4 h-4"/>
+                                    已保存
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 命名规则 */}
+                        <div>
+                            <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">命名规则</h3>
+                            <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">设置录音文件的命名规则</p>
+                            
+                            <div className="mt-3">
+                                <input
+                                    type="text"
+                                    value={recordingNamingPattern}
+                                    onChange={(e) => setRecordingNamingPattern(e.target.value)}
+                                    placeholder="例如: recording_{datetime}"
+                                    className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                                    可用变量: {`{prefix}`, `{date}`, `{time}`, `{datetime}`}
+                                </div>
+                                {recordingPatternSaved && (
+                                    <div className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                                        <Check className="w-4 h-4"/>
+                                        已保存
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 快捷键 */}
+                        <div>
+                            <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">快捷键</h3>
+                            <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">设置录音的快捷键（第一次按开始，第二次按停止）</p>
+
+                            <div className="mt-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                        <label className="text-sm text-slate-700 dark:text-slate-300">录音切换</label>
+                                        <input
+                                            type="text"
+                                            value={toggleRecordingShortcut}
+                                            readOnly
+                                            placeholder="点击录制"
+                                            onClick={handleRecordRecordingShortcut}
+                                            onKeyDown={handleRecordingShortcutKeyDown}
+                                            onBlur={() => {
+                                                setRecordingShortcutRecording(false);
+                                                setIsRecordingShortcut(false);
+                                            }}
+                                            className="w-full mt-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleResetRecordingShortcut}
+                                        className="px-3 py-2 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm"
+                                    >
+                                        重置
+                                    </button>
+                                </div>
+
+                                {recordingShortcutRecording && (
+                                    <div className="text-center text-sm text-blue-600 dark:text-blue-400 mt-2">
+                                        请按下快捷键组合...
+                                    </div>
+                                )}
+
+                                {recordingShortcutSaved && (
+                                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium mt-2">
+                                        <Check className="w-4 h-4"/>
+                                        已保存
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

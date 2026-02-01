@@ -216,14 +216,27 @@ export default function WebPages() {
 
   const handleAddWebPage = () => {
     setEditingWebPage(null)
+    // 确保使用有效的 category_id
+    const validCategoryId = categories.length > 0 ? categories[0].id : null
     setWebPageForm({
       title: '',
       url: '',
       description: '',
-      category_id: categories.length > 0 ? categories[0].id : 1,
+      category_id: validCategoryId,
       is_active: 1
     })
     setTestResult(null)
+    
+    // 如果没有分类，显示提示
+    if (!validCategoryId) {
+      console.warn('No categories available, please create a category first')
+      window.alert('请先创建分类后再添加网页')
+      // 可选：自动打开分类管理界面
+      setShowAddCategoryModal(true)
+      handleAddCategory()
+    } else {
+      setShowAddWebPageModal(true)
+    }
   }
 
   const handleEditWebPage = (webPage: WebPageItem) => {
@@ -232,7 +245,7 @@ export default function WebPages() {
       title: webPage.title,
       url: webPage.url,
       description: webPage.description || '',
-      category_id: webPage.category_id || (categories.length > 0 ? categories[0].id : 1),
+      category_id: webPage.category_id ?? (categories.length > 0 ? categories[0].id : null),
       is_active: webPage.is_active || 0
     })
     setTestResult(null)
