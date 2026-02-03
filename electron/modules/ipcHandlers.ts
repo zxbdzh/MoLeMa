@@ -1,9 +1,10 @@
-import {dialog, ipcMain, session} from "electron";
+import {app, dialog, ipcMain, session, shell} from "electron";
 import Store from "electron-store";
 import Parser from "rss-parser";
 import {
     closeWindow,
     getMainWindow,
+    getWindowFocused,
     isFullscreen,
     maximizeWindow,
     minimizeWindow,
@@ -16,7 +17,9 @@ import {notesApi} from "../api/notesApi";
 import {todosApi} from "../api/todosApi";
 import {webPagesApi} from "../api/webPagesApi";
 import {recordingsApi} from "../api/recordingsApi";
+import {usageStatsApi} from "../api/usageStatsApi";
 import {getCurrentDatabasePath, getProxy, getProxyConfig, migrateDatabaseToNewPath, setProxy} from "../database";
+import {getCurrentSessionId} from "../main";
 
 const store = new Store({
     name: "moyu-data",
@@ -413,6 +416,66 @@ export function registerIPCHandlers() {
         }
     });
 
+    ipcMain.handle("webPagesCategories:getAll", async () => {
+        try {
+            const categories = webPagesApi.getAllCategories();
+            return {success: true, categories};
+        } catch (error) {
+            console.error("Failed to get web page categories:", error);
+            return {success: false, error: "Failed to get web page categories"};
+        }
+    });
+
+    ipcMain.handle("webPagesCategories:getById", async (_event, id) => {
+        try {
+            const category = webPagesApi.getCategoryById(id);
+            return {success: true, category};
+        } catch (error) {
+            console.error("Failed to get web page category by id:", error);
+            return {success: false, error: "Failed to get web page category by id"};
+        }
+    });
+
+    ipcMain.handle("webPagesCategories:create", async (_event, category) => {
+        try {
+            const id = webPagesApi.createCategory(category);
+            return {success: true, id};
+        } catch (error) {
+            console.error("Failed to create web page category:", error);
+            return {success: false, error: "Failed to create web page category"};
+        }
+    });
+
+    ipcMain.handle("webPagesCategories:update", async (_event, id, category) => {
+        try {
+            const result = webPagesApi.updateCategory(id, category);
+            return {success: result};
+        } catch (error) {
+            console.error("Failed to update web page category:", error);
+            return {success: false, error: "Failed to update web page category"};
+        }
+    });
+
+    ipcMain.handle("webPagesCategories:delete", async (_event, id) => {
+        try {
+            const result = webPagesApi.deleteCategory(id);
+            return {success: result};
+        } catch (error) {
+            console.error("Failed to delete web page category:", error);
+            return {success: false, error: "Failed to delete web page category"};
+        }
+    });
+
+    ipcMain.handle("webPagesCategories:getWebPageCount", async (_event, categoryId) => {
+        try {
+            const count = webPagesApi.getCategoryWebPageCount(categoryId);
+            return {success: true, count};
+        } catch (error) {
+            console.error("Failed to get web page count:", error);
+            return {success: false, error: "Failed to get web page count"};
+        }
+    });
+
     // ==================== Recordings API ====================
 
     ipcMain.handle("recordings:getAll", async () => {
@@ -445,11 +508,198 @@ export function registerIPCHandlers() {
         }
     });
 
+    ipcMain.handle("recordings:getById", async (_event, id) => {
+        try {
+            const recording = recordingsApi.getById(id);
+            return {success: true, recording};
+        } catch (error) {
+            console.error("Failed to get recording by id:", error);
+            return {success: false, error: "Failed to get recording by id"};
+        }
+    });
+
+    ipcMain.handle("recordings:update", async (_event, id, recording) => {
+        try {
+            const result = recordingsApi.update(id, recording);
+            return {success: result};
+        } catch (error) {
+            console.error("Failed to update recording:", error);
+            return {success: false, error: "Failed to update recording"};
+        }
+    });
+
+    ipcMain.handle("recordings:count", async () => {
+        try {
+            const count = recordingsApi.count();
+            return {success: true, count};
+        } catch (error) {
+            console.error("Failed to get recordings count:", error);
+            return {success: false, error: "Failed to get recordings count"};
+        }
+    });
+
+    ipcMain.handle("recordings:getStats", async () => {
+        try {
+            const stats = recordingsApi.getStats();
+            return {success: true, stats};
+        } catch (error) {
+            console.error("Failed to get recordings stats:", error);
+            return {success: false, error: "Failed to get recordings stats"};
+        }
+    });
+
+    ipcMain.handle("recordings:scanDirectory", async () => {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+
+            const savePath = store.get("recordings.savePath") as string || app.getPath("documents");
+
+            if (!fs.existsSync(savePath)) {
+                return {success: true, files: []};
+            }
+
+            const files = fs.readdirSync(savePath)
+                .filter(file => ['.wav', '.mp3', '.m4a', '.webm', '.ogg'].includes(
+                    path.extname(file).toLowerCase()
+                ))
+                .map(file => {
+                    const filePath = path.join(savePath, file);
+                    const stats = fs.statSync(filePath);
+                    return {
+                        id: `${stats.mtime.getTime()}_${file}`,
+                        file_name: file,
+                        file_path: filePath,
+                        created_at: stats.mtime.getTime(),
+                        file_size: stats.size,
+                        duration: 0,
+                        notes: ''
+                    };
+                })
+                .sort((a, b) => b.created_at - a.created_at);
+
+            return {success: true, files};
+        } catch (error) {
+            console.error("Failed to scan directory:", error);
+            return {success: false, error: "Failed to scan directory"};
+        }
+    });
+
+    ipcMain.handle("recordings:getSavePath", async () => {
+        try {
+            const savePath = store.get("recordings.savePath") as string || app.getPath("documents");
+            return {success: true, savePath};
+        } catch (error) {
+            console.error("Failed to get save path:", error);
+            return {success: false, error: "Failed to get save path"};
+        }
+    });
+
+    ipcMain.handle("recordings:setSavePath", async (_event, savePath: string) => {
+        try {
+            store.set("recordings.savePath", savePath);
+            return {success: true};
+        } catch (error) {
+            console.error("Failed to set save path:", error);
+            return {success: false, error: "Failed to set save path"};
+        }
+    });
+
+    ipcMain.handle("recordings:getNamingPattern", async () => {
+        try {
+            const pattern = store.get("recordings.namingPattern") as string || "recording_{date}_{time}";
+            return {success: true, pattern};
+        } catch (error) {
+            console.error("Failed to get naming pattern:", error);
+            return {success: false, error: "Failed to get naming pattern"};
+        }
+    });
+
+    ipcMain.handle("recordings:setNamingPattern", async (_event, pattern: string) => {
+        try {
+            store.set("recordings.namingPattern", pattern);
+            return {success: true};
+        } catch (error) {
+            console.error("Failed to set naming pattern:", error);
+            return {success: false, error: "Failed to set naming pattern"};
+        }
+    });
+
+    ipcMain.handle("recordings:generateFileName", async (_event, prefix?: string) => {
+        try {
+            const pattern = store.get("recordings.namingPattern") as string || "recording_{date}_{time}";
+            const now = new Date();
+            const date = now.toISOString().split("T")[0];
+            const time = now.toTimeString().split(" ")[0].replace(/:/g, "");
+            const fileName = pattern
+                .replace("{date}", date)
+                .replace("{time}", time)
+                .replace("{prefix}", prefix || "");
+            return {success: true, fileName: `${fileName}.wav`};
+        } catch (error) {
+            console.error("Failed to generate file name:", error);
+            return {success: false, error: "Failed to generate file name"};
+        }
+    });
+
+    ipcMain.handle("recordings:getDefaultDevice", async () => {
+        try {
+            const defaultDevice = store.get("recordings.defaultDevice") as string || "";
+            return {success: true, deviceId: defaultDevice};
+        } catch (error) {
+            console.error("Failed to get default device:", error);
+            return {success: false, error: "Failed to get default device"};
+        }
+    });
+
+    ipcMain.handle("recordings:setDefaultDevice", async (_event, deviceId: string) => {
+        try {
+            store.set("recordings.defaultDevice", deviceId);
+            return {success: true};
+        } catch (error) {
+            console.error("Failed to set default device:", error);
+            return {success: false, error: "Failed to set default device"};
+        }
+    });
+
+    ipcMain.handle("recordings:deleteFile", async (_event, filePath: string) => {
+        try {
+            const fs = require('fs');
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                return {success: true};
+            }
+            return {success: false, error: "File not found"};
+        } catch (error) {
+            console.error("Failed to delete file:", error);
+            return {success: false, error: "Failed to delete file"};
+        }
+    });
+
+    ipcMain.handle("recordings:saveFile", async (_event, fileName: string, fileData: ArrayBuffer, savePath?: string) => {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const targetPath = savePath || store.get("recordings.savePath") as string || app.getPath("documents");
+            const fullPath = path.join(targetPath, fileName);
+
+            if (!fs.existsSync(targetPath)) {
+                fs.mkdirSync(targetPath, {recursive: true});
+            }
+
+            fs.writeFileSync(fullPath, Buffer.from(fileData));
+            return {success: true, filePath: fullPath};
+        } catch (error) {
+            console.error("Failed to save file:", error);
+            return {success: false, error: "Failed to save file"};
+        }
+    });
+
     // ==================== Usage Stats API ====================
 
     ipcMain.handle("stats:startSession", async (_event, sessionId) => {
         try {
-            const result = require("../api/usageStatsApi").usageStatsApi.startSession(sessionId);
+            const result = usageStatsApi.startSession(sessionId);
             return {success: result};
         } catch (error) {
             console.error("Failed to start session:", error);
@@ -459,7 +709,7 @@ export function registerIPCHandlers() {
 
     ipcMain.handle("stats:endSession", async (_event, sessionId) => {
         try {
-            const result = require("../api/usageStatsApi").usageStatsApi.endSession(sessionId);
+            const result = usageStatsApi.endSession(sessionId);
             return {success: result};
         } catch (error) {
             console.error("Failed to end session:", error);
@@ -467,9 +717,13 @@ export function registerIPCHandlers() {
         }
     });
 
-    ipcMain.handle("stats:startFeatureUsage", async (_event, sessionId, featureId) => {
+    ipcMain.handle("stats:startFeatureUsage", async (_event, featureId) => {
         try {
-            const result = require("../api/usageStatsApi").usageStatsApi.startFeatureUsage(sessionId, featureId);
+            const sessionId = getCurrentSessionId();
+            if (!sessionId) {
+                return {success: false, error: "No active session"};
+            }
+            const result = usageStatsApi.startFeatureUsage(sessionId, featureId);
             return {success: result};
         } catch (error) {
             console.error("Failed to start feature usage:", error);
@@ -479,7 +733,7 @@ export function registerIPCHandlers() {
 
     ipcMain.handle("stats:endFeatureUsage", async (_event, featureId) => {
         try {
-            const result = require("../api/usageStatsApi").usageStatsApi.endFeatureUsage(featureId);
+            const result = usageStatsApi.endFeatureUsage(featureId);
             return {success: result};
         } catch (error) {
             console.error("Failed to end feature usage:", error);
@@ -489,7 +743,7 @@ export function registerIPCHandlers() {
 
     ipcMain.handle("stats:getAppUsage", async (_event, dimension) => {
         try {
-            const stats = require("../api/usageStatsApi").usageStatsApi.getAppUsage(dimension);
+            const stats = usageStatsApi.getAppUsage(dimension);
             return {success: true, stats};
         } catch (error) {
             console.error("Failed to get app usage:", error);
@@ -499,11 +753,21 @@ export function registerIPCHandlers() {
 
     ipcMain.handle("stats:getFeatureUsage", async (_event, featureId) => {
         try {
-            const stats = require("../api/usageStatsApi").usageStatsApi.getFeatureUsage(featureId);
+            const stats = usageStatsApi.getFeatureUsage(featureId);
             return {success: true, stats};
         } catch (error) {
             console.error("Failed to get feature usage:", error);
             return {success: false, error: "Failed to get feature usage"};
+        }
+    });
+
+    ipcMain.handle("stats:getHistoryTrend", async (_event, dimension, days) => {
+        try {
+            const trend = usageStatsApi.getHistoryTrend(dimension, days);
+            return {success: true, trend};
+        } catch (error) {
+            console.error("Failed to get history trend:", error);
+            return {success: false, error: "Failed to get history trend"};
         }
     });
 
@@ -521,8 +785,7 @@ export function registerIPCHandlers() {
 
     ipcMain.handle("database:setPath", async (_event, newPath) => {
         try {
-            const result = migrateDatabaseToNewPath(newPath);
-            return result;
+            return migrateDatabaseToNewPath(newPath);
         } catch (error) {
             console.error("Failed to set database path:", error);
             return {success: false, error: "Failed to set database path"};
@@ -607,6 +870,74 @@ export function registerIPCHandlers() {
     };
 
     setupWebviewProxy();
+
+    ipcMain.handle("window:isFocused", async () => {
+        try {
+            return {success: true, focused: getWindowFocused()};
+        } catch (error) {
+            console.error("Failed to check window focused status:", error);
+            return {success: false, error: "Failed to check window focused status"};
+        }
+    });
+
+    ipcMain.handle("autoUpdate:getEnabled", async () => {
+        try {
+            return {success: true, enabled: getAutoUpdateEnabled()};
+        } catch (error) {
+            console.error("Failed to get auto update enabled status:", error);
+            return {success: false, error: "Failed to get auto update enabled status"};
+        }
+    });
+
+    ipcMain.handle("todos:getPending", async (_event, page, pageSize) => {
+        try {
+            const result = todosApi.getPendingTodos(page, pageSize);
+            return {success: true, ...result};
+        } catch (error) {
+            console.error("Failed to get pending todos:", error);
+            return {success: false, error: "Failed to get pending todos"};
+        }
+    });
+
+    ipcMain.handle("todos:getCompleted", async (_event, page, pageSize) => {
+        try {
+            const result = todosApi.getCompletedTodos(page, pageSize);
+            return {success: true, ...result};
+        } catch (error) {
+            console.error("Failed to get completed todos:", error);
+            return {success: false, error: "Failed to get completed todos"};
+        }
+    });
+
+    ipcMain.handle("todos:clearCompleted", async () => {
+        try {
+            const count = todosApi.clearCompleted();
+            return {success: true, count};
+        } catch (error) {
+            console.error("Failed to clear completed todos:", error);
+            return {success: false, error: "Failed to clear completed todos"};
+        }
+    });
+
+    ipcMain.handle("todos:delete", async (_event, id) => {
+        try {
+            const result = todosApi.delete(id);
+            return {success: result};
+        } catch (error) {
+            console.error("Failed to delete todo:", error);
+            return {success: false, error: "Failed to delete todo"};
+        }
+    });
+
+    ipcMain.handle("shell:showItemInFolder", async (_event, filePath: string) => {
+        try {
+            shell.showItemInFolder(filePath);
+            return {success: true};
+        } catch (error) {
+            console.error("Failed to show item in folder:", error);
+            return {success: false, error: "Failed to show item in folder"};
+        }
+    });
 
     console.log("IPC handlers registered");
 }

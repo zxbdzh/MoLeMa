@@ -142,19 +142,20 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({onClose}) => {
     const confirmDeleteRecording = async () => {
         if (deleteConfirm.id !== null) {
             try {
-                // 获取要删除的录音文件
                 const recording = recordings.find(r => r.id === deleteConfirm.id);
                 if (recording && recording.file_path) {
-                    // 通过 IPC 调用 main 进程删除文件
                     const result = await window.electronAPI?.recordings?.deleteFile(recording.file_path);
                     if (result?.success) {
-                        console.log(`>>> 删除录音文件成功: ${recording.file_path}`);
+                        console.log('>>> 删除录音文件成功:', recording.file_path);
+                        await loadRecordings();
+                    } else {
+                        console.error('>>> 删除录音文件失败');
+                        alert('删除录音失败，请重试');
                     }
-                    // 重新加载录音列表
-                    await loadRecordings();
                 }
             } catch (error) {
                 console.error('删除录音失败:', error);
+                alert('删除录音失败，请重试');
             }
             setDeleteConfirm({id: null});
         }

@@ -220,6 +220,8 @@ export interface ElectronAPI {
     delete: (id: number) => Promise<{ success: boolean }>;
     count: () => Promise<{ success: boolean; count?: number }>;
     getStats: () => Promise<{ success: boolean; stats?: any }>;
+    scanDirectory: () => Promise<{ success: boolean; files?: any[] }>;
+    deleteFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
     saveFile: (fileName: string, fileData: ArrayBuffer, savePath?: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
     getSavePath: () => Promise<{ success: boolean; savePath?: string }>;
     setSavePath: (savePath: string) => Promise<{ success: boolean }>;
@@ -229,6 +231,12 @@ export interface ElectronAPI {
     getDefaultDevice: () => Promise<{ success: boolean; deviceId?: string }>;
     setDefaultDevice: (deviceId: string) => Promise<{ success: boolean }>;
     onToggle: (callback: () => void) => () => void;
+  };
+
+  // Shell API
+  shell: {
+    openPath: (path: string) => Promise<{ success: boolean; error?: string }>;
+    showItemInFolder: (path: string) => Promise<{ success: boolean; error?: string }>;
   };
 
   // 对话框

@@ -13,8 +13,7 @@ import {
     createWindow,
     getMainWindow,
     setWindowStateCallback,
-    setWindowVisible,
-    toggleWindow
+    setWindowVisible
 } from "./modules/windowManager";
 import {registerGlobalShortcuts, unregisterAllShortcuts} from "./modules/shortcutManager";
 import {createTray} from "./modules/trayManager";
@@ -60,24 +59,6 @@ function endCurrentSession(): void {
         currentSessionId = null;
     }
 }
-
-function startFeatureUsage(featureId: string): void {
-    if (currentFeatureId && currentFeatureId !== featureId) {
-        usageStatsApi.endFeatureUsage(currentFeatureId);
-    }
-    currentFeatureId = featureId;
-    if (currentSessionId) {
-        usageStatsApi.startFeatureUsage(currentSessionId, featureId);
-    }
-}
-
-function endFeatureUsage(featureId: string): void {
-    if (currentFeatureId === featureId) {
-        usageStatsApi.endFeatureUsage(featureId);
-        currentFeatureId = null;
-    }
-}
-
 function pauseFeatureUsage(): void {
     if (currentFeatureId) {
         usageStatsApi.endFeatureUsage(currentFeatureId);
@@ -90,8 +71,6 @@ setWindowStateCallback((focused) => {
 });
 
 // 重写 toggleWindow 以集成会话管理
-const originalToggleWindow = toggleWindow;
-
 export function toggleWindowWithSession() {
     if (getMainWindow() && getMainWindow().isVisible()) {
         endCurrentSession();
@@ -100,10 +79,14 @@ export function toggleWindowWithSession() {
     } else {
         startNewSession();
         getMainWindow()?.show();
-        getMainWindow()?.focus();
         setWindowVisible(true);
     }
 }
+
+export function getCurrentSessionId(): string | null {
+    return currentSessionId;
+}
+
 
 // ==================== 应用启动 ====================
 
@@ -127,6 +110,7 @@ app.whenReady().then(async () => {
     createTray();
     registerGlobalShortcuts();
     registerIPCHandlers();
+    startNewSession();
 
     // 设置自动更新
     setupAutoUpdater();

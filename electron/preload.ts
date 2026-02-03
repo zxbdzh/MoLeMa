@@ -349,6 +349,35 @@ contextBridge.exposeInMainWorld("electronAPI", {
  * @property {(id: string, bounds: Electron.Rectangle) => Promise<any>} browserView.setBounds
  * @property {(id: string) => Promise<any>} browserView.destroy
  * @property {(id: string, code: string) => Promise<any>} browserView.executeJavaScript
+ * @property {Object} shell
+ * @property {(path: string) => Promise<any>} shell.openPath
+ * @property {(path: string) => Promise<any>} shell.showItemInFolder
+ * @property {Object} autoUpdate
+ * @property {() => Promise<any>} autoUpdate.getEnabled
+ * @property {(enabled: boolean) => Promise<any>} autoUpdate.setEnabled
+ * @property {() => Promise<any>} autoUpdate.checkForUpdates
+ * @property {Object} autoLaunch
+ * @property {() => Promise<any>} autoLaunch.getEnabled
+ * @property {(enabled: boolean) => Promise<any>} autoLaunch.setEnabled
+ * @property {Object} recordings
+ * @property {(limit?: number, offset?: number) => Promise<any>} recordings.getAll
+ * @property {() => Promise<any>} recordings.scanDirectory
+ * @property {(filePath: string) => Promise<any>} recordings.deleteFile
+ * @property {(id: number) => Promise<any>} recordings.getById
+ * @property {(recording: any) => Promise<any>} recordings.create
+ * @property {(id: number, recording: any) => Promise<any>} recordings.update
+ * @property {(id: number) => Promise<any>} recordings.delete
+ * @property {() => Promise<any>} recordings.count
+ * @property {() => Promise<any>} recordings.getStats
+ * @property {(fileName: string, fileData: ArrayBuffer, savePath?: string) => Promise<any>} recordings.saveFile
+ * @property {() => Promise<any>} recordings.getSavePath
+ * @property {(savePath: string) => Promise<any>} recordings.setSavePath
+ * @property {() => Promise<any>} recordings.getNamingPattern
+ * @property {(pattern: string) => Promise<any>} recordings.setNamingPattern
+ * @property {(prefix?: string) => Promise<any>} recordings.generateFileName
+ * @property {() => Promise<any>} recordings.getDefaultDevice
+ * @property {(deviceId: string) => Promise<any>} recordings.setDefaultDevice
+ * @property {(callback: () => void) => () => void} recordings.onToggle
  */
 
 /**
