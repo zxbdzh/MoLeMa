@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import React, {useEffect, useState} from "react";
+import {AnimatePresence, motion} from "framer-motion";
 import {
-  Rss,
-  FileText,
   CheckSquare,
-  Home,
-  Settings as SettingsIcon,
-  Moon,
-  Sun,
-  Monitor,
-  X,
-  Minimize,
-  Maximize2,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  Home,
   Link,
+  Maximize2,
   Mic,
+  Minimize,
+  Monitor,
+  Moon,
+  Rss,
+  Settings as SettingsIcon,
+  Sun,
+  X,
 } from "lucide-react";
 import iconPng from './assets/icon.png'; // 导入图标文件
 import Tooltip from "./components/Tooltip";
@@ -30,9 +30,9 @@ import Stats from "./components/Stats";
 import ConfirmDialog from "./components/ConfirmDialog";
 import AlertDialog from "./components/AlertDialog";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { ToastProvider } from "./components/Toast";
-import { useRSSStore } from "./store/rssStore";
-import { AudioRecorder } from "./components/AudioRecorder";
+import {ToastProvider} from "./components/Toast";
+import {useRSSStore} from "./store/rssStore";
+import {AudioRecorder} from "./components/AudioRecorder";
 import recordingService from "./services/recordingService";
 
 type TabType = "home" | "rss" | "notes" | "todo" | "webpages" | "recording" | "settings";
@@ -284,12 +284,11 @@ function App() {
 
   // 监听快捷键变更
   useEffect(() => {
-    const unsubscribe = window.electronAPI?.shortcuts?.onChanged?.(
-      (newShortcuts) => {
-        setShortcuts(newShortcuts);
-      },
+    return window.electronAPI?.shortcuts?.onChanged?.(
+        (newShortcuts) => {
+          setShortcuts(newShortcuts);
+        },
     );
-    return unsubscribe;
   }, []);
 
   // 追踪功能使用情况
@@ -755,60 +754,6 @@ function App() {
     </div>
   );
 }
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-  onClick,
-  index,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  onClick?: () => void;
-  index: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.1 }}
-      whileHover={{
-        y: -5,
-        boxShadow: "0 20px 40px -10px rgba(0,0,0,0.3)",
-      }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-blue-300 dark:hover:border-slate-600 transition-all duration-300 cursor-pointer group relative overflow-hidden"
-    >
-      <div className="relative z-10 mb-3">{icon}</div>
-      <h3 className="relative z-10 text-lg font-bold font-heading mb-2 dark:text-white text-slate-900 group-hover:text-blue-600 transition-colors duration-200">
-        {title}
-      </h3>
-      <p className="relative z-10 text-slate-400 dark:text-slate-400 text-slate-600 text-sm leading-relaxed">
-        {description}
-      </p>
-      <div className="relative z-10 mt-4 flex items-center text-blue-600 text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-[-4px] group-hover:translate-x-0">
-        立即体验
-        <svg
-          className="w-4 h-4 ml-1 transition-transform duration-300 group-hover:translate-x-1"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5l7 7-7 7"
-          />
-        </svg>
-      </div>
-    </motion.div>
-  );
-}
-
 // 用 ToastProvider 和 ErrorBoundary 包装整个应用
 export default function AppWrapper() {
   return (
