@@ -29,6 +29,7 @@ import WebPages from "./components/WebPages";
 import Stats from "./components/Stats";
 import ConfirmDialog from "./components/ConfirmDialog";
 import AlertDialog from "./components/AlertDialog";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { ToastProvider } from "./components/Toast";
 import { useRSSStore } from "./store/rssStore";
 import { AudioRecorder } from "./components/AudioRecorder";
@@ -808,11 +809,13 @@ function FeatureCard({
   );
 }
 
-// 用 ToastProvider 包装整个应用
+// 用 ToastProvider 和 ErrorBoundary 包装整个应用
 export default function AppWrapper() {
   return (
     <ToastProvider>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </ToastProvider>
   );
 }

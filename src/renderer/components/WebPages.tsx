@@ -81,6 +81,15 @@ export default function WebPages() {
   // 筛选弹窗
   const [showFilterModal, setShowFilterModal] = useState(false)
 
+  // AlertDialog 状态
+  const [showAlertDialog, setShowAlertDialog] = useState(false)
+  const [alertDialogConfig, setAlertDialogConfig] = useState<{
+    type: 'warning' | 'info' | 'success' | 'error'
+    title: string
+    message: string
+    onConfirm?: () => void
+  } | null>(null)
+
   // 网页浏览器弹窗
   const [showWebBrowser, setShowWebBrowser] = useState(false)
   const [currentWebPage, setCurrentWebPage] = useState<WebPageItem | null>(null)
@@ -191,15 +200,22 @@ export default function WebPages() {
   }
 
   const handleDeleteWebPage = async (id: number) => {
-    if (window.confirm('确定要删除这个网页吗？删除后将无法恢复。')) {
-      try {
-        await window.electronAPI?.webPages?.delete(id)
-        await fetchWebPagesList()
-        await fetchWebPages()
-      } catch (error) {
-        console.error('Failed to delete web page:', error)
+    setAlertDialogConfig({
+      type: 'warning',
+      title: '删除网页',
+      message: '确定要删除这个网页吗？删除后将无法恢复。',
+      onConfirm: async () => {
+        try {
+          await window.electronAPI?.webPages?.delete(id)
+          await fetchWebPagesList()
+          await fetchWebPages()
+          setShowAlertDialog(false)
+        } catch (error) {
+          console.error('Failed to delete web page:', error)
+        }
       }
-    }
+    })
+    setShowAlertDialog(true)
   }
 
   const handleToggleWebPage = async (webPage: WebPageItem) => {
@@ -230,9 +246,12 @@ export default function WebPages() {
     // 如果没有分类，显示提示
     if (!validCategoryId) {
       console.warn('No categories available, please create a category first')
-      window.alert('请先创建分类后再添加网页')
-      // 可选：自动打开分类管理界面
-      setShowAddCategoryModal(true)
+      setAlertDialogConfig({
+        type: 'warning',
+        title: '提示',
+        message: '请先创建分类后再添加网页'
+      })
+      setShowAlertDialog(true)
       handleAddCategory()
     } else {
       setShowAddWebPageModal(true)
@@ -279,7 +298,12 @@ export default function WebPages() {
   const handleSaveCategory = async () => {
     try {
       if (!categoryForm.name.trim()) {
-        window.alert('请输入分类名称')
+        setAlertDialogConfig({
+          type: 'warning',
+          title: '提示',
+          message: '请输入分类名称'
+        })
+        setShowAlertDialog(true)
         return
       }
 
@@ -304,32 +328,31 @@ export default function WebPages() {
       })
     } catch (error) {
       console.error('Failed to save category:', error)
-      window.alert('保存分类失败')
+      setAlertDialogConfig({
+        type: 'error',
+        title: '错误',
+        message: '保存分类失败'
+      })
+      setShowAlertDialog(true)
     }
   }
 
   const handleDeleteCategory = async (categoryId: number) => {
-
       // 检查是否有关联网页
-
       const webPageCount = categoryWebPageCounts.get(categoryId) || 0
 
-  
-
       if (webPageCount > 0) {
-
-        window.alert(`无法删除，该分类下还有 ${webPageCount} 个网页`)
-
+        setAlertDialogConfig({
+          type: 'warning',
+          title: '无法删除',
+          message: `无法删除，该分类下还有 ${webPageCount} 个网页`
+        })
+        setShowAlertDialog(true)
         return
-
       }
 
-  
-
       setCategoryToDelete(categoryId)
-
       setShowDeleteCategoryConfirm(true)
-
     }
 
   // 根据数据库中的分类和默认分类生成分类列表
@@ -1121,7 +1144,13 @@ export default function WebPages() {
                 }
               } catch (error) {
                 console.error('Failed to delete category:', error)
-                window.alert('删除分类失败')
+                setAlertDialogConfig({
+                  isOpen: true,
+                  type: 'error',
+                  title: '删除失败',
+                  message: '删除分类失败，请重试'
+                })
+                setShowAlertDialog(true)
               }
             }
             setShowDeleteCategoryConfirm(false)
@@ -1133,6 +1162,26 @@ export default function WebPages() {
           }}
         />,
         document.body
+      )}
+
+      {/* AlertDialog */}
+      {showAlertDialog && alertDialogConfig && (
+        <AlertDialog
+          isOpen={showAlertDialog}
+          type={alertDialogConfig.type}
+          title={alertDialogConfig.title}
+          message={alertDialogConfig.message}
+          confirmText="确定"
+          cancelText="取消"
+          showCancel={true}
+          onConfirm={() => {
+            alertDialogConfig.onConfirm?.()
+            setShowAlertDialog(false)
+          }}
+          onCancel={() => {
+            setShowAlertDialog(false)
+          }}
+        />
       )}
     </div>
   )

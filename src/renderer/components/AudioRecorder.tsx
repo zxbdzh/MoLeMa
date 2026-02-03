@@ -262,7 +262,7 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onClose }) => {
                       {recording.file_name}
                     </div>
                     <div className="text-sm text-slate-500 dark:text-slate-400 truncate">
-                      {recording.device_name} • {formatTime(recording.duration || 0)} • {new Date(recording.created_at).toLocaleString('zh-CN')}
+                      {new Date(recording.created_at).toLocaleString('zh-CN')}
                     </div>
                   </div>
                   <div className="flex gap-2 flex-shrink-0 ml-4">

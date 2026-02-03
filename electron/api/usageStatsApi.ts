@@ -244,7 +244,8 @@ export const usageStatsApi = {
       'rss': 'RSS 订阅',
       'notes': '记事本',
       'todo': '待办清单',
-      'webpages': '网页收藏'
+      'webpages': '网页收藏',
+      'recording': '录音'
     };
     
     let query = `

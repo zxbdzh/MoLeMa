@@ -3,6 +3,7 @@ import { Plus, Trash2, RefreshCw, Rss, Clock, ExternalLink, Star, StarOff } from
 import { useRSSStore } from '../store/rssStore'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
+import AlertDialog from './AlertDialog'
 
 // 预设的 RSS 源
 const PRESET_FEEDS = [
@@ -19,6 +20,8 @@ export default function RSSPage() {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
   const [error, setError] = useState('')
   const [viewMode, setViewMode] = useState<'feeds' | 'favorites'>('feeds')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [feedToDelete, setFeedToDelete] = useState<string | null>(null)
 
   const setLoading = (key: string, value: boolean) => {
     setLoadingStates(prev => ({ ...prev, [key]: value }))
@@ -67,8 +70,15 @@ export default function RSSPage() {
   }
 
   const handleRemoveFeed = (url: string) => {
-    if (window.confirm('确定要删除这个 RSS 源吗？')) {
-      removeFeed(url)
+    setFeedToDelete(url)
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDeleteFeed = () => {
+    if (feedToDelete) {
+      removeFeed(feedToDelete)
+      setShowDeleteConfirm(false)
+      setFeedToDelete(null)
     }
   }
 
@@ -349,6 +359,28 @@ export default function RSSPage() {
           )}
         </div>
       )}
+    </div>
+  )
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {/* ... 现有内容 ... */}
+      
+      {/* 删除确认对话框 */}
+      <AlertDialog
+        isOpen={showDeleteConfirm}
+        type="warning"
+        title="删除 RSS 源"
+        message="确定要删除这个 RSS 源吗？删除后将无法恢复。"
+        confirmText="删除"
+        cancelText="取消"
+        showCancel={true}
+        onConfirm={confirmDeleteFeed}
+        onCancel={() => {
+          setShowDeleteConfirm(false)
+          setFeedToDelete(null)
+        }}
+      />
     </div>
   )
 }

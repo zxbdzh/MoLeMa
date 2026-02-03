@@ -73,33 +73,31 @@ export const useRSSStore = create<RSSStore>()(
       },
 
       addFeed: async (url: string) => {
-        if (window.electronAPI && window.electronAPI.rss) {
-          // 去除URL前后空格
-          const trimmedUrl = url.trim()
-
-          // 检查feed是否已存在
-          const existingFeeds = get().feeds
-          if (existingFeeds.some(feed => feed.url === trimmedUrl)) {
-            window.alert('该RSS订阅已存在，请不要重复添加！')
-            return
-          }
-
-          const result = await window.electronAPI.rss.addFeed(trimmedUrl)
-          if (result.success) {
-            // 确保返回的feed url也没有空格
-            const processedFeed = {
-              ...result.feed,
-              url: result.feed.url.trim()
+          if (window.electronAPI && window.electronAPI.rss) {
+            // 去除URL前后空格
+            const trimmedUrl = url.trim()
+      
+            // 检查feed是否已存在
+            const existingFeeds = get().feeds
+            if (existingFeeds.some(feed => feed.url === trimmedUrl)) {
+              throw new Error('该RSS订阅已存在，请不要重复添加！')
             }
-            set((state) => ({
-              feeds: [...state.feeds, processedFeed]
-            }))
-          } else {
-            throw new Error(result.error || 'Failed to add RSS feed')
+      
+            const result = await window.electronAPI.rss.addFeed(trimmedUrl)
+            if (result.success) {
+              // 确保返回的feed url也没有空格
+              const processedFeed = {
+                ...result.feed,
+                url: result.feed.url.trim()
+              }
+              set((state) => ({
+                feeds: [...state.feeds, processedFeed]
+              }))
+            } else {
+              throw new Error(result.error || 'Failed to add RSS feed')
+            }
           }
-        }
-      },
-
+        },
       removeFeed: async (url: string) => {
         if (window.electronAPI && window.electronAPI.rss) {
           // 去除URL前后空格
