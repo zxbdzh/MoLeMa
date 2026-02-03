@@ -287,6 +287,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // 录音 API
   recordings: {
     getAll: (limit?: number, offset?: number) => ipcRenderer.invoke("recordings:getAll", limit, offset),
+    scanDirectory: () => ipcRenderer.invoke("recordings:scanDirectory"),
+    deleteFile: (filePath: string) => ipcRenderer.invoke("recordings:deleteFile", filePath),
     getById: (id: number) => ipcRenderer.invoke("recordings:getById", id),
     create: (recording: any) => ipcRenderer.invoke("recordings:create", recording),
     update: (id: number, recording: any) => ipcRenderer.invoke("recordings:update", id, recording),
@@ -306,6 +308,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.on("recording:toggle", listener);
       return () => ipcRenderer.removeListener("recording:toggle", listener);
     },
+  },
+
+  // Shell API
+  shell: {
+    openPath: (path: string) => ipcRenderer.invoke("shell:openPath", path),
+    showItemInFolder: (path: string) => ipcRenderer.invoke("shell:showItemInFolder", path),
   },
 });
 

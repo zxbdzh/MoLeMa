@@ -420,18 +420,34 @@ function toggleWindow() {
 
 // 注册全局快捷键
 function registerGlobalShortcuts() {
+  console.log('>>> registerGlobalShortcuts 被调用');
   const shortcuts = getShortcuts();
+  console.log('>>> 获取到的快捷键配置:', shortcuts);
 
   // 注册显示/隐藏窗口快捷键
   globalShortcut.register(shortcuts.toggleWindow, () => {
+    console.log('>>> 全局快捷键触发: toggleWindow');
     toggleWindow();
   });
+  console.log(`>>> 已注册 toggleWindow 快捷键: ${shortcuts.toggleWindow}`);
 
-  // 注册录音切换快捷键
+  // 注册录音切换快捷键（后台录音，不显示窗口）
   if (shortcuts.toggleRecording) {
     globalShortcut.register(shortcuts.toggleRecording, () => {
-      mainWindow?.webContents.send('recording:toggle');
+      console.log('>>> 全局快捷键触发: toggleRecording（后台模式）');
+      console.log('>>> mainWindow 是否存在:', !!mainWindow);
+      
+      // 直接发送录音切换消息，不显示窗口
+      if (mainWindow) {
+        console.log('>>> 发送 recording:toggle 消息到渲染进程');
+        mainWindow.webContents.send('recording:toggle');
+      } else {
+        console.error('>>> mainWindow 不存在，无法发送消息');
+      }
     });
+    console.log(`>>> 已注册 toggleRecording 快捷键: ${shortcuts.toggleRecording}（后台模式）`);
+  } else {
+    console.log('>>> toggleRecording 快捷键为空，跳过注册');
   }
 
   console.log("全局快捷键已注册");
@@ -876,19 +892,68 @@ ipcMain.handle("shortcuts:get", async () => {
 
 ipcMain.handle("shortcuts:set", async (_event, shortcuts) => {
   try {
-    // 注销旧快捷键
-    globalShortcut.unregisterAll();
-
-    // 注册新快捷键
-    globalShortcut.register(shortcuts.toggleWindow, () => {
-      toggleWindow();
-    });
-
-    // 注册录音切换快捷键
-    if (shortcuts.toggleRecording) {
-      globalShortcut.register(shortcuts.toggleRecording, () => {
-        mainWindow?.webContents.send('recording:toggle');
+    console.log('>>> shortcuts:set 被调用, shortcuts =', shortcuts);
+    
+    // 获取当前已注册的快捷键
+    const currentShortcuts = store.get('shortcuts') || {};
+    console.log('>>> 当前快捷键配置:', currentShortcuts);
+    
+    // 注册 toggleWindow 快捷键（如果有变化）
+    if (shortcuts.toggleWindow !== currentShortcuts.toggleWindow) {
+      // 先注销旧的快捷键
+      if (currentShortcuts.toggleWindow) {
+        globalShortcut.unregister(currentShortcuts.toggleWindow);
+        console.log('>>> 已注销旧的 toggleWindow 快捷键:', currentShortcuts.toggleWindow);
+      }
+      
+      // 注册新的快捷键
+      const registered = globalShortcut.register(shortcuts.toggleWindow, () => {
+        console.log('>>> 快捷键触发: toggleWindow');
+        toggleWindow();
       });
+      
+      if (!registered) {
+        console.error('>>> 注册 toggleWindow 快捷键失败:', shortcuts.toggleWindow);
+        return { success: false, error: 'Failed to register toggleWindow shortcut' };
+      }
+      console.log('>>> 已注册 toggleWindow 快捷键:', shortcuts.toggleWindow);
+    } else {
+      console.log('>>> toggleWindow 快捷键未变化，跳过');
+    }
+
+    // 注册 toggleRecording 快捷键（如果有变化）
+    if (shortcuts.toggleRecording !== currentShortcuts.toggleRecording) {
+      // 先注销旧的快捷键
+      if (currentShortcuts.toggleRecording) {
+        globalShortcut.unregister(currentShortcuts.toggleRecording);
+        console.log('>>> 已注销旧的 toggleRecording 快捷键:', currentShortcuts.toggleRecording);
+      }
+      
+      // 注册新的快捷键
+      if (shortcuts.toggleRecording) {
+        const registered = globalShortcut.register(shortcuts.toggleRecording, () => {
+          console.log('>>> 快捷键触发: toggleRecording（后台模式）');
+          console.log('>>> mainWindow 是否存在:', !!mainWindow);
+          
+          // 直接发送录音切换消息，不显示窗口
+          if (mainWindow) {
+            console.log('>>> 发送 recording:toggle 消息到渲染进程');
+            mainWindow.webContents.send('recording:toggle');
+          } else {
+            console.error('>>> mainWindow 不存在，无法发送消息');
+          }
+        });
+        
+        if (!registered) {
+          console.error('>>> 注册 toggleRecording 快捷键失败:', shortcuts.toggleRecording);
+          return { success: false, error: 'Failed to register toggleRecording shortcut' };
+        }
+        console.log('>>> 已注册 toggleRecording 快捷键:', shortcuts.toggleRecording, '（后台模式）');
+      } else {
+        console.log('>>> toggleRecording 快捷键为空，跳过注册');
+      }
+    } else {
+      console.log('>>> toggleRecording 快捷键未变化，跳过');
     }
 
     setShortcuts(shortcuts);
@@ -2314,6 +2379,103 @@ ipcMain.handle("recordings:getAll", (_event, limit?: number, offset?: number) =>
   }
 });
 
+// 扫描录音目录，返回实际存在的录音文件
+ipcMain.handle("recordings:scanDirectory", () => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const { app } = require('electron');
+
+    // 获取录音保存路径
+    const savePath = store.get('recordingSavePath') as string | undefined ||
+                      path.join(app.getPath('userData'), 'recordings');
+
+    // 确保目录存在
+    if (!fs.existsSync(savePath)) {
+      console.log('>>> 录音目录不存在:', savePath);
+      return { success: true, files: [] };
+    }
+
+    // 读取目录中的所有文件
+    const files = fs.readdirSync(savePath);
+    const recordings: any[] = [];
+
+    // 解析文件名获取时间的正则表达式
+    // 格式: recording_20250301_123758.wav
+    const filenamePattern = /^recording_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.wav$/;
+
+    files.forEach((file: string) => {
+      const filePath = path.join(savePath, file);
+      const stat = fs.statSync(filePath);
+
+      // 只处理 .wav 文件
+      if (!file.toLowerCase().endsWith('.wav')) {
+        return;
+      }
+
+      // 只处理普通文件
+      if (!stat.isFile()) {
+        return;
+      }
+
+      // 解析文件名获取时间
+      const match = file.match(filenamePattern);
+      let createdAt = stat.birthtime || stat.mtime; // 默认使用文件系统时间
+
+      if (match) {
+        const [, year, month, day, hour, minute, second] = match;
+        // 从文件名解析时间
+        createdAt = new Date(
+          parseInt(year),
+          parseInt(month) - 1, // 月份是 0-based
+          parseInt(day),
+          parseInt(hour),
+          parseInt(minute),
+          parseInt(second)
+        );
+      }
+
+      recordings.push({
+        id: file, // 使用文件名作为 ID
+        name: file,
+        file_name: file,
+        file_path: filePath,
+        created_at: createdAt.toISOString(),
+        file_size: stat.size,
+        duration: 0, // 需要后续通过其他方式获取
+        device_name: '未知设备' // 文件系统方式无法获取设备信息
+      });
+    });
+
+    // 按创建时间降序排序
+    recordings.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    console.log(`>>> 扫描录音目录完成，找到 ${recordings.length} 个录音文件`);
+    return { success: true, files: recordings };
+  } catch (error) {
+    console.error("Failed to scan recording directory:", error);
+    return { success: false, error: "Failed to scan recording directory" };
+  }
+});
+
+// 删除录音文件
+ipcMain.handle("recordings:deleteFile", (_event, filePath: string) => {
+  try {
+    const fs = require('fs');
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`>>> 删除录音文件成功: ${filePath}`);
+      return { success: true };
+    } else {
+      console.log(`>>> 录音文件不存在: ${filePath}`);
+      return { success: false, error: "File not found" };
+    }
+  } catch (error) {
+    console.error("Failed to delete recording file:", error);
+    return { success: false, error: "Failed to delete recording file" };
+  }
+});
+
 // 根据 ID 获取录音
 ipcMain.handle("recordings:getById", (_event, id: number) => {
   try {
@@ -2354,6 +2516,22 @@ ipcMain.handle("recordings:update", (_event, id: number, recording: any) => {
 // 删除录音记录
 ipcMain.handle("recordings:delete", (_event, id: number) => {
   try {
+    // 先获取录音记录
+    const recording = recordingsApi.getById(id);
+    if (!recording) {
+      return { success: false, error: "Recording not found" };
+    }
+
+    // 删除物理文件
+    if (recording.file_path) {
+      const fs = require('fs');
+      if (fs.existsSync(recording.file_path)) {
+        fs.unlinkSync(recording.file_path);
+        console.log(`>>> 删除录音文件: ${recording.file_path}`);
+      }
+    }
+
+    // 删除数据库记录
     const success = recordingsApi.delete(id);
     return { success };
   } catch (error) {
@@ -3047,6 +3225,41 @@ ipcMain.handle("autoLaunch:setEnabled", async (_event, enabled: boolean) => {
         error instanceof Error
           ? error.message
           : "Failed to set auto launch status",
+    };
+  }
+});
+
+// 打开文件路径或文件夹路径
+ipcMain.handle("shell:openPath", async (_event, path: string) => {
+  console.log('>>> shell:openPath 被调用, path =', path);
+  try {
+    const { shell } = require('electron');
+    console.log('>>> 调用 shell.openPath');
+    await shell.openPath(path);
+    console.log('>>> shell.openPath 执行成功');
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to open path:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to open path",
+    };
+  }
+});
+
+// 在文件管理器中显示文件并聚焦
+ipcMain.handle("shell:showItemInFolder", async (_event, path: string) => {
+  console.log('>>> shell:showItemInFolder 被调用, path =', path);
+  try {
+    const { shell } = require('electron');
+    shell.showItemInFolder(path);
+    console.log('>>> shell.showItemInFolder 执行成功');
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to show item in folder:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to show item in folder",
     };
   }
 });

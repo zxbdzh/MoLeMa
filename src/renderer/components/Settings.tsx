@@ -4,6 +4,7 @@ import {Card3D} from './3DCard'
 
 interface ShortcutConfig {
     toggleWindow: string
+    toggleRecording?: string
 }
 
 export default function Settings() {
@@ -51,9 +52,17 @@ export default function Settings() {
     const [isRecordingShortcut, setIsRecordingShortcut] = useState(false);
 
     useEffect(() => {
+        // 获取快捷键配置（合并两个调用，避免竞态条件）
         window.electronAPI?.shortcuts?.get().then((config) => {
             if (config) {
-                setShortcuts(config)
+                setShortcuts(config);
+                // 同步设置录音快捷键
+                if (config.toggleRecording) {
+                    setToggleRecordingShortcut(config.toggleRecording);
+                } else {
+                    // 只在第一次加载时设置默认值
+                    setToggleRecordingShortcut('CommandOrControl+Shift+R');
+                }
             }
         })
 
@@ -97,14 +106,6 @@ export default function Settings() {
                 setRecordingNamingPattern(result.pattern || 'recording_{datetime}');
             }
         });
-
-        window.electronAPI?.shortcuts?.get().then((config) => {
-            if (config?.toggleRecording) {
-                setToggleRecordingShortcut(config.toggleRecording);
-            } else {
-                setToggleRecordingShortcut('CommandOrControl+Shift+R');
-            }
-        });
     }, [])
 
     // 监听更新事件
@@ -140,26 +141,56 @@ export default function Settings() {
     }
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (!isRecording) return
 
-        e.preventDefault()
-        e.stopPropagation()
+            if (!isRecording) return
 
-        const modifiers: string[] = []
-        if (e.ctrlKey || e.metaKey) modifiers.push('CommandOrControl')
-        if (e.altKey) modifiers.push('Alt')
-        if (e.shiftKey) modifiers.push('Shift')
+    
 
-        const key = e.key.toUpperCase()
-        if (key === 'CONTROL' || key === 'ALT' || key === 'SHIFT' || key === 'META') {
-            return
+            e.preventDefault()
+
+            e.stopPropagation()
+
+    
+
+            const modifiers: string[] = []
+
+            if (e.ctrlKey || e.metaKey) modifiers.push('CommandOrControl')
+
+            if (e.altKey) modifiers.push('Alt')
+
+            if (e.shiftKey) modifiers.push('Shift')
+
+    
+
+            const key = e.key.toUpperCase()
+
+            if (key === 'CONTROL' || key === 'ALT' || key === 'SHIFT' || key === 'META') {
+
+                return
+
+            }
+
+    
+
+            const shortcut = [...modifiers, key].join('+')
+
+            setShortcuts((prev) => ({ ...prev, [isRecording]: shortcut }))
+
+            setIsRecording(null)
+
+            setSaved(false)
+
+            
+
+            // 立即保存快捷键
+
+            window.electronAPI?.shortcuts?.set(shortcuts).catch(error => {
+
+                console.error('保存快捷键失败:', error)
+
+            })
+
         }
-
-        const shortcut = [...modifiers, key].join('+')
-        setShortcuts((prev) => ({...prev, [isRecording]: shortcut}))
-        setIsRecording(null)
-        setSaved(false)
-    }
 
     const handleReset = () => {
         setShortcuts({
@@ -332,40 +363,66 @@ export default function Settings() {
 
     const handleRecordingShortcutKeyDown = (e: React.KeyboardEvent) => {
         if (!recordingShortcutRecording) return;
-        
+
         e.preventDefault();
         e.stopPropagation();
-        
+
         const modifiers: string[] = [];
         if (e.ctrlKey || e.metaKey) modifiers.push('CommandOrControl');
         if (e.altKey) modifiers.push('Alt');
         if (e.shiftKey) modifiers.push('Shift');
-        
-        const keyName = e.key.toUpperCase();
-        
+
+        const key = e.key.toUpperCase();
+
         // 过滤无效的键
-        if (keyName === 'SHIFT' || keyName === 'CONTROL' || keyName === 'ALT' || keyName === 'META') {
+        if (key === 'CONTROL' || key === 'ALT' || key === 'SHIFT' || key === 'META') {
+            return;
+        }
+
+        const shortcut = [...modifiers, key].join('+');
+
+        console.log('>>> 录制的快捷键:', shortcut);
+        
+        // 检测快捷键冲突
+        if (shortcut === shortcuts.toggleWindow) {
+            alert('该快捷键已用于切换窗口，请选择其他快捷键');
             return;
         }
         
-        const shortcut = [...modifiers, keyName].join('+');
+        if (shortcut === toggleRecordingShortcut) {
+            alert('该快捷键与当前录音快捷键相同，无需更改');
+            setRecordingShortcutRecording(false);
+            setIsRecordingShortcut(false);
+            return;
+        }
+        
+        // 将快捷键直接传递给 saveRecordingShortcuts，而不是依赖状态更新
+        saveRecordingShortcuts(shortcut);
         
         setToggleRecordingShortcut(shortcut);
         setRecordingShortcutRecording(false);
         setIsRecordingShortcut(false);
-        saveRecordingShortcuts();
     };
 
-    const saveRecordingShortcuts = async () => {
+    const saveRecordingShortcuts = async (newShortcut?: string) => {
         try {
-            const result = await window.electronAPI?.shortcuts?.set({
+            // 使用传入的快捷键或当前状态值
+            const shortcutToSave = newShortcut || toggleRecordingShortcut;
+            
+            const newShortcuts = {
                 ...shortcuts,
-                toggleRecording: toggleRecordingShortcut
-            });
+                toggleRecording: shortcutToSave
+            };
+            
+            const result = await window.electronAPI?.shortcuts?.set(newShortcuts);
             
             if (result?.success) {
+                // 保存成功后，更新本地状态
+                setShortcuts(newShortcuts);
                 setRecordingShortcutSaved(true);
                 setTimeout(() => setRecordingShortcutSaved(false), 2000);
+            } else {
+                alert('快捷键注册失败，请重试');
             }
         } catch (error) {
             console.error('保存录音快捷键失败:', error);
@@ -719,7 +776,7 @@ export default function Settings() {
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm dark:text-slate-300 text-slate-700">当前版本</span>
                                 <span
-                                    className="text-sm font-medium dark:text-white text-slate-900">v{window.electronAPI.versions.app}</span>
+                                    className="text-sm font-medium dark:text-white text-slate-900">v{window.electronAPI?.versions?.app || 'dev'}</span>
                             </div>
                             {updateInfo && (
                                 <div className="flex items-center justify-between">
@@ -924,26 +981,24 @@ export default function Settings() {
                             <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">设置录音的快捷键（第一次按开始，第二次按停止）</p>
 
                             <div className="mt-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                        <label className="text-sm text-slate-700 dark:text-slate-300">录音切换</label>
-                                        <input
-                                            type="text"
-                                            value={toggleRecordingShortcut}
-                                            readOnly
-                                            placeholder="点击录制"
-                                            onClick={handleRecordRecordingShortcut}
-                                            onKeyDown={handleRecordingShortcutKeyDown}
-                                            onBlur={() => {
-                                                setRecordingShortcutRecording(false);
-                                                setIsRecordingShortcut(false);
-                                            }}
-                                            className="w-full mt-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                                        />
-                                    </div>
+                                <label className="text-sm text-slate-700 dark:text-slate-300 block mb-2">录音切换</label>
+                                <div className="flex gap-3">
+                                    <input
+                                        type="text"
+                                        value={toggleRecordingShortcut}
+                                        readOnly
+                                        placeholder="点击录制"
+                                        onClick={handleRecordRecordingShortcut}
+                                        onKeyDown={handleRecordingShortcutKeyDown}
+                                        onBlur={() => {
+                                            setRecordingShortcutRecording(false);
+                                            setIsRecordingShortcut(false);
+                                        }}
+                                        className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                                    />
                                     <button
                                         onClick={handleResetRecordingShortcut}
-                                        className="px-3 py-2 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm"
+                                        className="px-4 py-2 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded-lg transition-colors text-sm"
                                     >
                                         重置
                                     </button>

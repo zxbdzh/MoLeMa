@@ -32,6 +32,7 @@ import AlertDialog from "./components/AlertDialog";
 import { ToastProvider } from "./components/Toast";
 import { useRSSStore } from "./store/rssStore";
 import { AudioRecorder } from "./components/AudioRecorder";
+import recordingService from "./services/recordingService";
 
 type TabType = "home" | "rss" | "notes" | "todo" | "webpages" | "recording" | "settings";
 
@@ -58,6 +59,59 @@ function App() {
   });
   const { currentArticle, setCurrentArticle } = useRSSStore();
 
+  // 处理全局快捷键切换录音（后台录音，不显示窗口）
+  useEffect(() => {
+    // 播放提示音（使用 Web Audio API）
+    const playBeepSound = () => {
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const audioContext = new AudioContextClass();
+
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        gainNode.gain.value = 0.3;
+
+        const startTime = audioContext.currentTime;
+        oscillator.start(startTime);
+        gainNode.gain.setValueAtTime(0.3, startTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+        oscillator.stop(startTime + 0.15);
+      } catch (error) {
+        console.error('播放提示音失败:', error);
+      }
+    };
+
+    const handleToggleRecording = () => {
+      console.log('>>> App.tsx: 全局快捷键触发切换录音（后台模式）');
+      // 播放提示音
+      playBeepSound();
+      // 使用 RecordingService 来切换录音
+      if (recordingService.isRecording()) {
+        recordingService.stopRecording();
+      } else {
+        recordingService.startRecording();
+      }
+    };
+
+    const cleanup = window.electronAPI?.recordings?.onToggle?.(handleToggleRecording);
+    console.log('>>> App.tsx: 全局快捷键监听器已注册');
+
+    return () => {
+      if (cleanup) cleanup();
+      console.log('>>> App.tsx: 全局快捷键监听器已清理');
+    };
+  }, []); // 空依赖数组，只注册一次
+
   // 加载主题设置
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as
@@ -76,6 +130,10 @@ function App() {
     const originalAlert = window.alert;
     const originalConfirm = window.confirm;
 
+    // 创建一个全局状态来存储用户的选择
+    let confirmResult: boolean = false;
+    let confirmResolver: ((value: boolean) => void) | null = null;
+
     // 覆盖 alert
     window.alert = (message: string) => {
       setAlertDialog({
@@ -89,20 +147,40 @@ function App() {
       });
     };
 
-    // 覆盖 confirm
+    // 覆盖 confirm - 使用全局状态和同步方式
     window.confirm = (message?: string): boolean => {
-      let result = false;
+      console.log('>>> window.confirm 被调用, message =', message);
+      confirmResult = false;
+
       setAlertDialog({
         isOpen: true,
         type: "warning",
         title: "确认",
         message: message || "",
         onConfirm: () => {
-          result = true;
+          console.log('>>> 用户点击了确认');
+          confirmResult = true;
           setAlertDialog((prev) => ({ ...prev, isOpen: false }));
+          if (confirmResolver) {
+            confirmResolver(true);
+            confirmResolver = null;
+          }
         },
+        onCancel: () => {
+          console.log('>>> 用户点击了取消');
+          confirmResult = false;
+          setAlertDialog((prev) => ({ ...prev, isOpen: false }));
+          if (confirmResolver) {
+            confirmResolver(false);
+            confirmResolver = null;
+          }
+        }
       });
-      return result;
+
+      // 返回 false 表示取消，true 表示确认
+      // 注意：由于 React 状态更新是异步的，这个返回值可能在对话框显示前就返回了
+      // 实际的使用应该在 onConfirm 回调中处理
+      return false; // 默认返回 false，用户可以通过点击确认按钮来触发操作
     };
 
     // 清理函数
