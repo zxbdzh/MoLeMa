@@ -1,6 +1,7 @@
 import {useState, useEffect} from 'react'
 import {Keyboard, Save, RotateCcw, FolderOpen, Info, Check, X, RefreshCw} from 'lucide-react'
 import {Card3D} from './3DCard'
+import WebDAVSettings from './WebDAVSettings'
 
 interface ShortcutConfig {
     toggleWindow: string
@@ -45,11 +46,14 @@ export default function Settings() {
     const [recordingSavePath, setRecordingSavePath] = useState('');
     const [recordingPathSaved, setRecordingPathSaved] = useState(false);
     const [recordingNamingPattern, setRecordingNamingPattern] = useState('recording_{datetime}');
-    const [recordingPatternSaved, setRecordingPatternSaved] = useState(false);
+    const [recordingPatternSaved] = useState(false);
     const [toggleRecordingShortcut, setToggleRecordingShortcut] = useState('');
     const [recordingShortcutRecording, setRecordingShortcutRecording] = useState(false);
     const [recordingShortcutSaved, setRecordingShortcutSaved] = useState(false);
     const [isRecordingShortcut, setIsRecordingShortcut] = useState(false);
+
+    const [micVolume, setMicVolume] = useState(100);
+    const [micVolumeSaved, setMicVolumeSaved] = useState(false);
 
     useEffect(() => {
         // 获取快捷键配置（合并两个调用，避免竞态条件）
@@ -104,6 +108,12 @@ export default function Settings() {
         window.electronAPI?.recordings?.getNamingPattern().then((result) => {
             if (result?.success) {
                 setRecordingNamingPattern(result.pattern || 'recording_{datetime}');
+            }
+        });
+
+        window.electronAPI?.recordings?.getMicVolume().then((result) => {
+            if (result?.success && result.volume !== undefined) {
+                setMicVolume(result.volume);
             }
         });
     }, [])
@@ -340,18 +350,12 @@ export default function Settings() {
             alert('选择保存路径失败');
         }
     };
-
-    const handleRecordingNamingPatternChange = async (pattern: string) => {
-        try {
-            setRecordingNamingPattern(pattern);
-            const result = await window.electronAPI?.recordings?.setNamingPattern(pattern);
-            if (result?.success) {
-                setRecordingPatternSaved(true);
-                setTimeout(() => setRecordingPatternSaved(false), 2000);
-            }
-        } catch (error) {
-            console.error('保存命名规则失败:', error);
-            alert('保存命名规则失败');
+    const handleMicVolumeChange = async (volume: number) => {
+        setMicVolume(volume);
+        const result = await window.electronAPI?.recordings?.setMicVolume(volume);
+        if (result?.success) {
+            setMicVolumeSaved(true);
+            setTimeout(() => setMicVolumeSaved(false), 2000);
         }
     };
 
@@ -441,7 +445,7 @@ export default function Settings() {
                 <h2 className="text-3xl font-bold font-heading mb-2 dark:text-white text-slate-900">
                     快捷键设置
                 </h2>
-                <p className="text-slate-400 dark:text-slate-400 text-slate-600">自定义您的快捷键，提升使用体验</p>
+                <p className="text-slate-400 dark:text-slate-400">自定义您的快捷键，提升使用体验</p>
             </div>
 
             <div className="space-y-4">
@@ -507,14 +511,14 @@ export default function Settings() {
                     <h2 className="text-3xl font-bold font-heading mb-2 dark:text-white text-slate-900">
                         数据库设置
                     </h2>
-                    <p className="text-slate-400 dark:text-slate-400 text-slate-600">配置数据库存储位置</p>
+                    <p className="text-slate-400 dark:text-slate-400">配置数据库存储位置</p>
                 </div>
 
                 <Card3D className="p-6">
                     <div className="space-y-4">
                         <div>
                             <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">当前数据库路径</h3>
-                            <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">SQLite
+                            <p className="text-slate-400 dark:text-slate-400 text-sm">SQLite
                                 数据库文件，存储所有应用数据</p>
                         </div>
 
@@ -601,14 +605,14 @@ export default function Settings() {
                     <h2 className="text-3xl font-bold font-heading mb-2 dark:text-white text-slate-900">
                         代理设置
                     </h2>
-                    <p className="text-slate-400 dark:text-slate-400 text-slate-600">配置网络代理，用于访问 RSS 源</p>
+                    <p className="text-slate-400 dark:text-slate-400">配置网络代理，用于访问 RSS 源</p>
                 </div>
 
                 <Card3D className="p-6">
                     <div className="space-y-4">
                         <div>
                             <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">HTTP/HTTPS 代理</h3>
-                            <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">用于访问需要代理的
+                            <p className="text-slate-400 dark:text-slate-400 text-sm">用于访问需要代理的
                                 RSS 源或网页</p>
                         </div>
 
@@ -714,14 +718,14 @@ export default function Settings() {
                     <h2 className="text-3xl font-bold font-heading mb-2 dark:text-white text-slate-900">
                         自动更新设置
                     </h2>
-                    <p className="text-slate-400 dark:text-slate-400 text-slate-600">配置应用自动更新行为</p>
+                    <p className="text-slate-400 dark:text-slate-400">配置应用自动更新行为</p>
                 </div>
 
                 <Card3D className="p-6">
                     <div className="space-y-4">
                         <div>
                             <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">自动更新</h3>
-                            <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">允许应用自动检查并下载更新</p>
+                            <p className="text-slate-400 dark:text-slate-400 text-sm">允许应用自动检查并下载更新</p>
                         </div>
 
                         <div className="flex items-center justify-between">
@@ -964,10 +968,45 @@ export default function Settings() {
                                     className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                                    可用变量: {`{prefix}`, `{date}`, `{time}`, `{datetime}`}
+                                    可用变量: {`{prefix} {date} {time} {datetime}`}
                                 </div>
                                 {recordingPatternSaved && (
                                     <div className="mt-2 flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                                        <Check className="w-4 h-4"/>
+                                        已保存
+                                    </div>
+                                )}
+                        </div>
+                        </div>
+
+                        {/* 音频配置 */}
+                        <div>
+                            <h3 className="text-lg font-bold mb-1 dark:text-white text-slate-900">音频配置</h3>
+                            <p className="text-slate-400 dark:text-slate-400 text-slate-600 text-sm">调整录音音量</p>
+
+                            <div className="mt-4 space-y-4">
+                                <div>
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                        麦克风音量: {micVolume}%
+                                    </label>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="200"
+                                        step="10"
+                                        value={micVolume}
+                                        onChange={(e) => handleMicVolumeChange(Number(e.target.value))}
+                                        className="w-full mt-2"
+                                    />
+                                    <div className="flex justify-between text-xs text-slate-500 mt-1">
+                                        <span>静音 (0%)</span>
+                                        <span>默认 (100%)</span>
+                                        <span>最大 (200%)</span>
+                                    </div>
+                                </div>
+
+                                {micVolumeSaved && (
+                                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
                                         <Check className="w-4 h-4"/>
                                         已保存
                                     </div>
@@ -1021,6 +1060,9 @@ export default function Settings() {
                     </div>
                 </Card3D>
             </div>
+
+            {/* WebDAV 同步设置 */}
+            <WebDAVSettings />
         </div>
     )
 }

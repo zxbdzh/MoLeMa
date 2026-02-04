@@ -230,6 +230,8 @@ export interface ElectronAPI {
     generateFileName: (prefix?: string) => Promise<{ success: boolean; fileName?: string }>;
     getDefaultDevice: () => Promise<{ success: boolean; deviceId?: string }>;
     setDefaultDevice: (deviceId: string) => Promise<{ success: boolean }>;
+    getMicVolume: () => Promise<{ success: boolean; volume?: number }>;
+    setMicVolume: (volume: number) => Promise<{ success: boolean }>;
     onToggle: (callback: () => void) => () => void;
   };
 
@@ -237,6 +239,15 @@ export interface ElectronAPI {
   shell: {
     openPath: (path: string) => Promise<{ success: boolean; error?: string }>;
     showItemInFolder: (path: string) => Promise<{ success: boolean; error?: string }>;
+  };
+
+  // Clipboard API
+  clipboard: {
+    readText: () => string;
+    writeText: (text: string) => void;
+    readHTML: () => string;
+    writeHTML: (html: string) => void;
+    clear: () => void;
   };
 
   // 对话框
@@ -336,6 +347,68 @@ export interface ElectronAPI {
     onError: (callback: (error: { message: string }) => void) => () => void;
     onProgress: (callback: (progress: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => void) => () => void;
     onDownloaded: (callback: (info: { version: string }) => void) => () => void;
+  };
+
+  // 自动更新设置 API
+  autoUpdate: {
+    getEnabled: () => Promise<{ success: boolean; enabled?: boolean }>;
+    setEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
+  };
+
+  // 开机自启设置 API
+  autoLaunch: {
+    getEnabled: () => Promise<{ success: boolean; enabled?: boolean }>;
+    setEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
+  };
+
+  // WebDAV API
+  webdav: {
+    getConfig: () => Promise<{
+      success: boolean;
+      config?: {
+        serverUrl: string;
+        username: string;
+        password: string;
+        remoteConfigPath: string;
+        remoteRecordingPath: string;
+        enableSyncConfig: boolean;
+        enableSyncDatabase: boolean;
+        enableSyncRecordings: boolean;
+        syncMode: 'manual' | 'scheduled';
+        enableScheduledSync: boolean;
+        scheduledSyncInterval: number;
+        scheduledSyncType: 'all' | 'config' | 'database' | 'recordings';
+        debounceTime: number;
+        lastSyncTime: number;
+        nextSyncTime: number;
+      };
+    }>;
+    setConfig: (config: {
+      serverUrl: string;
+      username: string;
+      password: string;
+      remoteConfigPath: string;
+      remoteRecordingPath: string;
+      enableSyncConfig: boolean;
+      enableSyncDatabase: boolean;
+      enableSyncRecordings: boolean;
+      syncMode: 'manual' | 'scheduled';
+      enableScheduledSync: boolean;
+      scheduledSyncInterval: number;
+      scheduledSyncType: 'all' | 'config' | 'database' | 'recordings';
+      debounceTime: number;
+      lastSyncTime: number;
+      nextSyncTime: number;
+    }) => Promise<{ success: boolean }>;
+    testConnection: () => Promise<{ success: boolean }>;
+    syncAll: () => Promise<{ success: boolean }>;
+    getSyncLogs: () => Promise<{ success: boolean; logs?: string[] }>;
+    isWatching: () => Promise<{ success: boolean; isWatching?: boolean }>;
+    startScheduledSync: () => Promise<{ success: boolean }>;
+    stopScheduledSync: () => Promise<{ success: boolean }>;
+    onStatusChange: (callback: (status: any) => void) => () => void;
+    onWatchingStatusChange: (callback: (status: { isWatching: boolean; message: string }) => void) => () => void;
+    onScheduledSyncStatusChange: (callback: (status: { isRunning: boolean; nextSyncTime?: number; error?: string }) => void) => () => void;
   };
 
   // 平台信息

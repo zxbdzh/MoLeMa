@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, clipboard } = require("electron");
 
 // 暴露安全的 API 给渲染进程
 contextBridge.exposeInMainWorld("electronAPI", {
@@ -303,6 +303,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     generateFileName: (prefix?: string) => ipcRenderer.invoke("recordings:generateFileName", prefix),
     getDefaultDevice: () => ipcRenderer.invoke("recordings:getDefaultDevice"),
     setDefaultDevice: (deviceId: string) => ipcRenderer.invoke("recordings:setDefaultDevice", deviceId),
+    getMicVolume: () => ipcRenderer.invoke("recordings:getMicVolume"),
+    setMicVolume: (volume: number) => ipcRenderer.invoke("recordings:setMicVolume", volume),
     onToggle: (callback: () => void) => {
       const listener = () => callback();
       ipcRenderer.on("recording:toggle", listener);
@@ -314,6 +316,42 @@ contextBridge.exposeInMainWorld("electronAPI", {
   shell: {
     openPath: (path: string) => ipcRenderer.invoke("shell:openPath", path),
     showItemInFolder: (path: string) => ipcRenderer.invoke("shell:showItemInFolder", path),
+  },
+
+  // Clipboard API
+  clipboard: {
+    readText: () => clipboard.readText(),
+    writeText: (text: string) => clipboard.writeText(text),
+    readHTML: () => clipboard.readHTML(),
+    writeHTML: (html: string) => clipboard.writeHTML(html),
+    clear: () => clipboard.clear(),
+  },
+
+  // WebDAV API
+  webdav: {
+    getConfig: () => ipcRenderer.invoke("webdav:getConfig"),
+    setConfig: (config: any) => ipcRenderer.invoke("webdav:setConfig", config),
+    testConnection: () => ipcRenderer.invoke("webdav:testConnection"),
+    syncAll: () => ipcRenderer.invoke("webdav:syncAll"),
+    getSyncLogs: () => ipcRenderer.invoke("webdav:getSyncLogs"),
+    isWatching: () => ipcRenderer.invoke("webdav:isWatching"),
+    startScheduledSync: () => ipcRenderer.invoke("webdav:startScheduledSync"),
+    stopScheduledSync: () => ipcRenderer.invoke("webdav:stopScheduledSync"),
+    onStatusChange: (callback: (status: any) => void) => {
+      const listener = (_event: any, status: any) => callback(status);
+      ipcRenderer.on("webdav:statusChange", listener);
+      return () => ipcRenderer.removeListener("webdav:statusChange", listener);
+    },
+    onWatchingStatusChange: (callback: (status: { isWatching: boolean; message: string }) => void) => {
+      const listener = (_event: any, status: any) => callback(status);
+      ipcRenderer.on("webdav:watchingStatusChanged", listener);
+      return () => ipcRenderer.removeListener("webdav:watchingStatusChanged", listener);
+    },
+    onScheduledSyncStatusChange: (callback: (status: { isRunning: boolean; nextSyncTime?: number; error?: string }) => void) => {
+      const listener = (_event: any, status: any) => callback(status);
+      ipcRenderer.on("webdav:scheduledSyncStatusChanged", listener);
+      return () => ipcRenderer.removeListener("webdav:scheduledSyncStatusChanged", listener);
+    },
   },
 });
 

@@ -1,5 +1,6 @@
 import {app, BrowserView, dialog, ipcMain} from "electron";
 import {createRequire} from 'node:module';
+import Store from 'electron-store';
 // 导入模块
 import {closeDatabase, getDatabase, seedDefaultData,} from "./database";
 import {createUsageStatsTables, runMigration} from "./migration";
@@ -7,6 +8,7 @@ import {usageStatsApi} from "./api/usageStatsApi";
 import {testRSSFeed} from "./services/rssFetcher";
 import {testWebsiteNews} from "./services/websiteNewsFetcher";
 import {newsApi} from "./api/newsApi";
+import {WebDAVConfig} from "./services/webdavSyncService";
 
 // 导入管理模块
 import {
@@ -111,6 +113,19 @@ app.whenReady().then(async () => {
     registerGlobalShortcuts();
     registerIPCHandlers();
     startNewSession();
+
+    // 启动 WebDAV 定时上传
+    try {
+        const store = new Store({ name: "moyu-data" });
+        const webdavConfig = store.get("webdav.config") as WebDAVConfig | null;
+        if (webdavConfig?.syncMode === 'scheduled') {
+            console.log('[WebDAV] 应用启动，启动定时上传');
+            const scheduledSyncService = (await import('./services/scheduledSyncService')).default;
+            scheduledSyncService.startScheduledSync(webdavConfig);
+        }
+    } catch (error) {
+        console.error('[WebDAV] 启动定时上传失败:', error);
+    }
 
     // 设置自动更新
     setupAutoUpdater();
@@ -385,16 +400,5 @@ ipcMain.handle("shell:openPath", async (_event, path: string) => {
     } catch (error) {
         console.error("Failed to open path:", error);
         return {success: false, error: error instanceof Error ? error.message : "Failed to open path"};
-    }
-});
-
-ipcMain.handle("shell:showItemInFolder", async (_event, path: string) => {
-    try {
-        const {shell} = require('electron');
-        shell.showItemInFolder(path);
-        return {success: true};
-    } catch (error) {
-        console.error("Failed to show item in folder:", error);
-        return {success: false, error: error instanceof Error ? error.message : "Failed to show item in folder"};
     }
 });

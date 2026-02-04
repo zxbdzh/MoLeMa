@@ -8,7 +8,6 @@ class RecordingService {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private audioStream: MediaStream | null = null;
-  private timer: number | null = null;
   private listeners: Set<(isRecording: boolean) => void> = new Set();
   private durationListeners: Set<(duration: number) => void> = new Set();
   private _duration: number = 0;
@@ -33,12 +32,20 @@ class RecordingService {
     }
 
     try {
+      const volumeResult = await window.electronAPI?.recordings?.getMicVolume();
+      const micVolume = volumeResult?.success && volumeResult.volume ? volumeResult.volume : 100;
+
       const constraints: MediaStreamConstraints = {
         audio: deviceId ? { deviceId } : true
       };
 
       this.audioStream = await navigator.mediaDevices.getUserMedia(constraints);
-      this.mediaRecorder = new MediaRecorder(this.audioStream);
+
+      if (this.audioStream && micVolume !== 100) {
+        this.audioStream = this.applyVolumeGain(this.audioStream, micVolume / 100);
+      }
+
+      this.mediaRecorder = new MediaRecorder(this.audioStream!);
       this.audioChunks = [];
       this._duration = 0;
 
@@ -151,10 +158,10 @@ class RecordingService {
       
       // 获取保存路径
       const savePathResult = await window.electronAPI?.recordings?.getSavePath();
-      const savePath = savePathResult?.success ? savePathResult.savePath : undefined;
-      
+      const savePath = savePathResult?.success ? savePathResult.savePath : '';
+
       // 保存录音文件到磁盘
-      const saveResult = await window.electronAPI?.recordings?.saveFile(fileName, wavArrayBuffer, savePath);
+      const saveResult = await window.electronAPI?.recordings?.saveFile(fileName, wavArrayBuffer, savePath || '');
       
       if (saveResult?.success) {
         // 保存录音记录到数据库
@@ -205,6 +212,23 @@ class RecordingService {
    */
   private notifyDurationListeners(duration: number): void {
     this.durationListeners.forEach(listener => listener(duration));
+  }
+
+  /**
+   * 应用音量增益
+   */
+  private applyVolumeGain(stream: MediaStream, gain: number): MediaStream {
+    const audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+    const gainNode = audioContext.createGain();
+    const destination = audioContext.createMediaStreamDestination();
+
+    gainNode.gain.value = gain;
+
+    source.connect(gainNode);
+    gainNode.connect(destination);
+
+    return destination.stream;
   }
 
   /**
