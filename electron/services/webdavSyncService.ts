@@ -1,6 +1,6 @@
 import { createClient, WebDAVClient } from 'webdav';
 import { app } from 'electron';
-import { existsSync, readFileSync, writeFileSync, statSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, statSync, readdirSync, unlinkSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import Store from 'electron-store';
 

@@ -31,10 +31,6 @@ class FileWatcherService {
     await webdavSyncService.syncRecordings();
   }, 10000);
 
-  private deleteRemoteRecordingDebounced = debounce(async (filePath: string) => {
-    console.log(`>>> FileWatcher: 录音文件删除（防抖），${filePath}`);
-  }, 10000);
-
   startWatching(): void {
     if (this.isWatching) {
       console.log('>>> FileWatcher: 文件监听已在运行，跳过');
@@ -104,7 +100,6 @@ class FileWatcherService {
         const fileName = basename(filePath).toLowerCase();
         if (audioExts.some(ext => fileName.endsWith(ext))) {
           console.log(`>>> FileWatcher: 录音文件删除: ${filePath}`);
-          this.deleteRemoteRecordingDebounced(filePath);
         }
       });
 

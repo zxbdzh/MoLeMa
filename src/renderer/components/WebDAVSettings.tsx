@@ -19,15 +19,13 @@ interface WebDAVConfig {
   nextSyncTime: number;
 }
 
-interface SyncStatus {
-  status: 'idle' | 'connecting' | 'syncing' | 'success' | 'error';
-  message: string;
-  currentFile?: string;
-  progress?: number;
-  error?: string;
-}
-
 const WebDAVSettings = () => {
+  const migratePath = (path: string | undefined) => {
+    if (path?.startsWith('/moyu-')) {
+      return path.replace('/moyu-', '/MoLeMa-')
+    }
+    return path
+  }
   const [config, setConfig] = useState<WebDAVConfig>({
     serverUrl: '',
     username: '',
@@ -105,23 +103,22 @@ const WebDAVSettings = () => {
           nextSyncTime: loadedConfig.nextSyncTime || 0,
         };
 
-        if (loadedConfig.remoteConfigPath?.startsWith('/moyu-')) {
-          loadedConfig = {
-            ...loadedConfig,
-            remoteConfigPath: loadedConfig.remoteConfigPath.replace('/moyu-', '/MoLeMa-')
-          };
-          await window.electronAPI?.webdav?.setConfig?.(loadedConfig);
+        const migratedConfig = {
+          ...loadedConfig,
+          remoteConfigPath: migratePath(loadedConfig.remoteConfigPath) || '/MoLeMa-config/',
+          remoteRecordingPath: migratePath(loadedConfig.remoteRecordingPath) || '/MoLeMa-recordings/',
+        };
+
+        const needsMigration = (
+          loadedConfig.remoteConfigPath?.startsWith('/moyu-') ||
+          loadedConfig.remoteRecordingPath?.startsWith('/moyu-')
+        );
+
+        if (needsMigration) {
+          await window.electronAPI?.webdav?.setConfig?.(migratedConfig);
         }
 
-        if (loadedConfig.remoteRecordingPath?.startsWith('/moyu-')) {
-          loadedConfig = {
-            ...loadedConfig,
-            remoteRecordingPath: loadedConfig.remoteRecordingPath.replace('/moyu-', '/MoLeMa-')
-          };
-          await window.electronAPI?.webdav?.setConfig?.(loadedConfig);
-        }
-
-        setConfig(loadedConfig);
+        setConfig(migratedConfig);
       }
     } catch (error) {
       console.error('加载 WebDAV 配置失败:', error);

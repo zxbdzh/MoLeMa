@@ -288,41 +288,6 @@ export const todosApi = {
   },
 
   /**
-   * 获取分页的待办事项
-   */
-  getPaginatedTodos: (page: number = 1, pageSize: number = 10): {
-    todos: Todo[];
-    total: number;
-    totalPages: number;
-    currentPage: number;
-  } => {
-    const db = getDatabase();
-    
-    // 获取总数
-    const totalResult = db.prepare('SELECT COUNT(*) as count FROM todos').get() as { count: number };
-    const total = totalResult.count;
-    
-    // 计算分页
-    const totalPages = Math.ceil(total / pageSize);
-    const currentPage = Math.max(1, Math.min(page, totalPages));
-    const offset = (currentPage - 1) * pageSize;
-    
-    // 获取分页数据
-    const todos = db.prepare(`
-      SELECT * FROM todos 
-      ORDER BY order_index ASC, created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(pageSize, offset) as Todo[];
-    
-    return {
-      todos,
-      total,
-      totalPages,
-      currentPage
-    };
-  },
-
-  /**
    * 获取待完成的待办事项（分页）
    */
   getPendingTodos: (page: number = 1, pageSize: number = 10): {

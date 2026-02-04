@@ -142,7 +142,7 @@ export async function testRSSFeed(url: string): Promise<{ success: boolean; erro
 /**
  * 抓取所有活跃的 RSS 源
  */
-export async function fetchAllActiveSources(): Promise<FetchResult[]> {
+async function fetchAllActiveSources(): Promise<FetchResult[]> {
   console.log('Fetching all active RSS sources...');
 
   const sources = newsApi.getActiveSources();
@@ -170,7 +170,7 @@ export async function fetchAllActiveSources(): Promise<FetchResult[]> {
 /**
  * 抓取指定分类的 RSS 源
  */
-export async function fetchSourcesByCategory(categoryId: number): Promise<FetchResult[]> {
+async function fetchSourcesByCategory(categoryId: number): Promise<FetchResult[]> {
   console.log(`Fetching RSS sources for category ${categoryId}...`);
 
   const allSources = newsApi.getAllSources();

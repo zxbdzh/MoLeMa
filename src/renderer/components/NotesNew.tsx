@@ -3,23 +3,7 @@ import { motion } from 'framer-motion'
 import { Plus, Trash2, Save, Eye, EyeOff, Search, FileText, Calendar, Clock, Edit2 } from 'lucide-react'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { Card3D } from './3DCard'
-
-// 窗口可见性监听器
-const useWindowVisibility = (callback: () => void) => {
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        callback()
-      }
-    }
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [callback])
-}
+import { useWindowVisibility } from '../hooks/useWindowVisibility'
 
 interface Note {
   id: number

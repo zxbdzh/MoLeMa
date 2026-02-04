@@ -39,7 +39,7 @@ function extractMainContent(html: string): string {
 /**
  * 缓存新闻内容
  */
-export async function cacheNewsContent(newsItemId: number): Promise<boolean> {
+async function cacheNewsContent(newsItemId: number): Promise<boolean> {
   try {
     const item = newsApi.getNewsItemById(newsItemId);
     if (!item || !item.link) {
@@ -91,7 +91,7 @@ export async function cacheNewsContent(newsItemId: number): Promise<boolean> {
 /**
  * 缓存最近的新闻
  */
-export async function cacheRecentNews(limit: number = 50): Promise<{ total: number; cached: number; failed: number }> {
+async function cacheRecentNews(limit: number = 50): Promise<{ total: number; cached: number; failed: number }> {
   console.log(`Caching recent news (limit: ${limit})...`);
   
   const items = newsApi.getRecentNewsItems(limit);
@@ -123,7 +123,7 @@ export async function cacheRecentNews(limit: number = 50): Promise<{ total: numb
 /**
  * 批量缓存指定新闻条目
  */
-export async function cacheMultipleNewsItems(itemIds: number[]): Promise<{ success: number; failed: number }> {
+async function cacheMultipleNewsItems(itemIds: number[]): Promise<{ success: number; failed: number }> {
   console.log(`Caching ${itemIds.length} news items...`);
   
   let success = 0;
@@ -146,7 +146,7 @@ export async function cacheMultipleNewsItems(itemIds: number[]): Promise<{ succe
 /**
  * 清理过期的缓存内容
  */
-export function cleanOldCache(daysToKeep: number = 30): number {
+function cleanOldCache(daysToKeep: number = 30): number {
   console.log(`Cleaning old cache (keeping ${daysToKeep} days)...`);
   
   const count = newsApi.cleanOldNews(daysToKeep);

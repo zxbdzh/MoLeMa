@@ -3,6 +3,7 @@ import { Plus, Trash2, Edit2, ListChecks, Circle, CheckCircle, BarChart3, X, Cal
 import { useTodoStore } from '../store/todoStore'
 import { Card3D } from './3DCard'
 import * as Dialog from '@radix-ui/react-dialog'
+import { useWindowVisibility } from '../hooks/useWindowVisibility'
 import { 
   DndContext, 
   closestCenter, 
@@ -27,23 +28,6 @@ interface Todo {
   id: string
   text: string
   completed: boolean
-}
-
-// 窗口可见性监听器
-const useWindowVisibility = (callback: () => void) => {
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        callback()
-      }
-    }
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [callback])
 }
 
 // 统计弹层组件

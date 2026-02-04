@@ -96,7 +96,7 @@ async function extractNewsFromWebsite(url: string): Promise<WebsiteNewsItem[]> {
 /**
  * 从网站抓取新闻
  */
-export async function fetchWebsiteNews(sourceId: number): Promise<FetchResult> {
+async function fetchWebsiteNews(sourceId: number): Promise<FetchResult> {
   try {
     const source = newsApi.getSourceById(sourceId);
     if (!source) {
@@ -211,7 +211,7 @@ export async function testWebsiteNews(url: string): Promise<{ success: boolean; 
 /**
  * 抓取所有活跃的网站新闻源
  */
-export async function fetchAllActiveWebsiteSources(): Promise<FetchResult[]> {
+async function fetchAllActiveWebsiteSources(): Promise<FetchResult[]> {
   console.log('Fetching all active website sources...');
 
   // 获取所有非RSS类型的新闻源（可以扩展一个字段来区分RSS源和网站源）
