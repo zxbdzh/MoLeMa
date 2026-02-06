@@ -226,7 +226,6 @@ export default function TodoList() {
     deleteTodo,
     updateTodo,
     clearCompleted,
-    updateOrder,
     updatePendingOrder,
     updateCompletedOrder,
     initialize,

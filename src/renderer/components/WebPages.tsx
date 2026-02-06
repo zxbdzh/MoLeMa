@@ -2,11 +2,8 @@
 import {useEffect, useState} from 'react'
 import {createPortal} from 'react-dom'
 import {
-    BookOpen,
     Check,
-    Chrome,
     Clock,
-    Code,
     Edit2,
     Edit3,
     ExternalLink,
@@ -14,7 +11,6 @@ import {
     FolderPlus,
     Globe,
     Link,
-    Monitor,
     Plus,
     RefreshCw,
     Settings,
@@ -49,14 +45,6 @@ interface WebPageItem {
 }
 
 // 默认分类（当没有数据库分类时使用）
-const defaultCategories = [
-    {id: 'all', label: '全部', icon: Globe},
-    {id: 'work', label: '工作', icon: Code},
-    {id: 'learn', label: '学习', icon: BookOpen},
-    {id: 'tools', label: '工具', icon: Chrome},
-    {id: 'entertainment', label: '娱乐', icon: Monitor}
-]
-
 export default function WebPages() {
     const [webPages, setWebPages] = useState<WebPageItem[]>([])
     const [categories, setCategories] = useState<WebPageCategory[]>([])
@@ -103,6 +91,7 @@ export default function WebPages() {
     // AlertDialog 状态
     const [showAlertDialog, setShowAlertDialog] = useState(false)
     const [alertDialogConfig, setAlertDialogConfig] = useState<{
+        isOpen: boolean
         type: 'warning' | 'info' | 'success' | 'error'
         title: string
         message: string
@@ -218,25 +207,6 @@ export default function WebPages() {
         }
     }
 
-    const handleDeleteWebPage = async (id: number) => {
-        setAlertDialogConfig({
-            type: 'warning',
-            title: '删除网页',
-            message: '确定要删除这个网页吗？删除后将无法恢复。',
-            onConfirm: async () => {
-                try {
-                    await window.electronAPI?.webPages?.delete(id)
-                    await fetchWebPagesList()
-                    await fetchWebPages()
-                    setShowAlertDialog(false)
-                } catch (error) {
-                    console.error('Failed to delete web page:', error)
-                }
-            }
-        })
-        setShowAlertDialog(true)
-    }
-
     const handleToggleWebPage = async (webPage: WebPageItem) => {
         try {
             await window.electronAPI?.webPages?.update(webPage.id!, {
@@ -251,8 +221,7 @@ export default function WebPages() {
 
     const handleAddWebPage = () => {
         setEditingWebPage(null)
-        // 确保使用有效的 category_id
-        const validCategoryId = categories.length > 0 ? categories[0].id : null
+        const validCategoryId = categories.length > 0 ? categories[0].id : undefined
         setWebPageForm({
             title: '',
             url: '',
@@ -268,7 +237,8 @@ export default function WebPages() {
             setAlertDialogConfig({
                 type: 'warning',
                 title: '提示',
-                message: '请先创建分类后再添加网页'
+                message: '请先创建分类后再添加网页',
+                isOpen: true
             })
             setShowAlertDialog(true)
             handleAddCategory()
@@ -283,7 +253,7 @@ export default function WebPages() {
             title: webPage.title,
             url: webPage.url,
             description: webPage.description || '',
-            category_id: webPage.category_id ?? (categories.length > 0 ? categories[0].id : null),
+            category_id: webPage.category_id || (categories.length > 0 ? categories[0].id : 0),
             is_active: webPage.is_active || 0
         })
         setTestResult(null)
@@ -320,7 +290,8 @@ export default function WebPages() {
                 setAlertDialogConfig({
                     type: 'warning',
                     title: '提示',
-                    message: '请输入分类名称'
+                    message: '请输入分类名称',
+                    isOpen: true
                 })
                 setShowAlertDialog(true)
                 return
@@ -350,7 +321,8 @@ export default function WebPages() {
             setAlertDialogConfig({
                 type: 'error',
                 title: '错误',
-                message: '保存分类失败'
+                message: '保存分类失败',
+                isOpen: true
             })
             setShowAlertDialog(true)
         }
@@ -364,7 +336,8 @@ export default function WebPages() {
             setAlertDialogConfig({
                 type: 'warning',
                 title: '无法删除',
-                message: `无法删除，该分类下还有 ${webPageCount} 个网页`
+                message: `无法删除，该分类下还有 ${webPageCount} 个网页`,
+                isOpen: true
             })
             setShowAlertDialog(true)
             return
@@ -421,10 +394,9 @@ export default function WebPages() {
             <div className="mb-6">
                 <div className="flex items-center gap-4 mb-4">
                     <div className="flex items-center gap-2">
-                        <Filter
+                            <Filter
                             className="w-5 h-5 text-slate-400 cursor-pointer hover:text-blue-500 transition-colors"
                             onClick={() => setShowFilterModal(true)}
-                            title="筛选分类"
                         />
                         <span className="text-sm text-slate-500 dark:text-slate-400">
               {getAllCategories().find(c => c.id === selectedCategory)?.label || '全部'}

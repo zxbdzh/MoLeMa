@@ -6,6 +6,29 @@ export interface TodoCompletionStats {
   total: number;
 }
 
+export interface ConflictItem {
+  localPath: string;
+  remotePath: string;
+  localMtime: number;
+  remoteMtime: number;
+  size: number;
+  type: 'config' | 'database' | 'recording';
+}
+
+export interface RemoteFile {
+  path: string;
+  name: string;
+  size: number;
+  mtime: number;
+  type: 'config' | 'database' | 'recording';
+}
+
+export interface DownloadOptions {
+  overwrite: string[];
+  skip: string[];
+  rename: string[];
+}
+
 export interface ElectronAPI {
   // 窗口控制
   toggleWindow: () => void;
@@ -222,7 +245,7 @@ export interface ElectronAPI {
     getStats: () => Promise<{ success: boolean; stats?: any }>;
     scanDirectory: () => Promise<{ success: boolean; files?: any[] }>;
     deleteFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
-    saveFile: (fileName: string, fileData: ArrayBuffer, savePath?: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+    saveFile: (fileName: string, fileData: ArrayBuffer, savePath: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
     getSavePath: () => Promise<{ success: boolean; savePath?: string }>;
     setSavePath: (savePath: string) => Promise<{ success: boolean }>;
     getNamingPattern: () => Promise<{ success: boolean; pattern?: string }>;
@@ -351,14 +374,14 @@ export interface ElectronAPI {
 
   // 自动更新设置 API
   autoUpdate: {
-    getEnabled: () => Promise<{ success: boolean; enabled?: boolean }>;
-    setEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
+    getEnabled: () => Promise<{ success: boolean; enabled?: boolean; error?: string }>;
+    setEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
   };
 
   // 开机自启设置 API
   autoLaunch: {
     getEnabled: () => Promise<{ success: boolean; enabled?: boolean }>;
-    setEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
+    setEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
   };
 
   // WebDAV API
@@ -406,6 +429,10 @@ export interface ElectronAPI {
     isWatching: () => Promise<{ success: boolean; isWatching?: boolean }>;
     startScheduledSync: () => Promise<{ success: boolean }>;
     stopScheduledSync: () => Promise<{ success: boolean }>;
+    listRemoteFiles: () => Promise<{ success: boolean; files?: RemoteFile[] }>;
+    checkConflicts: () => Promise<{ success: boolean; conflicts?: ConflictItem[] }>;
+    downloadAll: (options: DownloadOptions) => Promise<{ success: boolean }>;
+    onLogUpdate: (callback: (logs: string[]) => void) => () => void;
     onStatusChange: (callback: (status: any) => void) => () => void;
     onWatchingStatusChange: (callback: (status: { isWatching: boolean; message: string }) => void) => () => void;
     onScheduledSyncStatusChange: (callback: (status: { isRunning: boolean; nextSyncTime?: number; error?: string }) => void) => () => void;

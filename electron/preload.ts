@@ -337,6 +337,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     isWatching: () => ipcRenderer.invoke("webdav:isWatching"),
     startScheduledSync: () => ipcRenderer.invoke("webdav:startScheduledSync"),
     stopScheduledSync: () => ipcRenderer.invoke("webdav:stopScheduledSync"),
+    listRemoteFiles: () => ipcRenderer.invoke("webdav:listRemoteFiles"),
+    checkConflicts: () => ipcRenderer.invoke("webdav:checkConflicts"),
+    downloadAll: (options: any) => ipcRenderer.invoke("webdav:downloadAll", options),
+    onLogUpdate: (callback: (logs: string[]) => void) => {
+      const listener = (_event: any, data: { logs: string[]; newLog: string }) => callback(data.logs);
+      ipcRenderer.on("webdav:logUpdate", listener);
+      return () => ipcRenderer.removeListener("webdav:logUpdate", listener);
+    },
     onStatusChange: (callback: (status: any) => void) => {
       const listener = (_event: any, status: any) => callback(status);
       ipcRenderer.on("webdav:statusChange", listener);

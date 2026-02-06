@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import { useEffect, useState } from "react";
 import {AnimatePresence, motion} from "framer-motion";
 import {
   CheckSquare,
@@ -29,6 +29,7 @@ import WebPages from "./components/WebPages";
 import Stats from "./components/Stats";
 import ConfirmDialog from "./components/ConfirmDialog";
 import AlertDialog from "./components/AlertDialog";
+import ConflictDialog from "./components/ConflictDialog";
 import ErrorBoundary from "./components/ErrorBoundary";
 import {ToastProvider} from "./components/Toast";
 import {useRSSStore} from "./store/rssStore";
@@ -52,12 +53,27 @@ function App() {
     title: string;
     message?: string;
     onConfirm?: () => void;
+    onCancel?: () => void;
   }>({
     isOpen: false,
     title: "",
     message: "",
     onConfirm: undefined,
+    onCancel: undefined,
   });
+
+  const [conflictDialog, setConflictDialog] = useState<{
+    isOpen: boolean;
+    conflicts: any[];
+    fileActions: Map<string, 'overwrite' | 'skip' | 'rename'>;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    conflicts: [],
+    fileActions: new Map(),
+    onConfirm: () => {},
+  });
+
   const { currentArticle, setCurrentArticle } = useRSSStore();
 
   // 处理全局快捷键切换录音（后台录音，不显示窗口）
@@ -125,14 +141,32 @@ function App() {
     }
   }, []);
 
+  // 设置全局冲突弹窗函数
+  useEffect(() => {
+    (window as any).showConflictDialog = (
+      conflicts: any[],
+      fileActions: Map<string, 'overwrite' | 'skip' | 'rename'>,
+      onConfirm: () => void
+    ) => {
+      setConflictDialog({
+        isOpen: true,
+        conflicts,
+        fileActions,
+        onConfirm,
+      });
+    };
+
+    return () => {
+      delete (window as any).showConflictDialog;
+    };
+  }, []);
+
   // 覆盖原生 alert 和 confirm
   useEffect(() => {
     // 保存原始函数
     const originalAlert = window.alert;
     const originalConfirm = window.confirm;
 
-    // 创建一个全局状态来存储用户的选择
-    let confirmResult: boolean = false;
     let confirmResolver: ((value: boolean) => void) | null = null;
 
     // 覆盖 alert
@@ -151,7 +185,6 @@ function App() {
     // 覆盖 confirm - 使用全局状态和同步方式
     window.confirm = (message?: string): boolean => {
       console.log('>>> window.confirm 被调用, message =', message);
-      confirmResult = false;
 
       setAlertDialog({
         isOpen: true,
@@ -160,7 +193,6 @@ function App() {
         message: message || "",
         onConfirm: () => {
           console.log('>>> 用户点击了确认');
-          confirmResult = true;
           setAlertDialog((prev) => ({ ...prev, isOpen: false }));
           if (confirmResolver) {
             confirmResolver(true);
@@ -169,7 +201,6 @@ function App() {
         },
         onCancel: () => {
           console.log('>>> 用户点击了取消');
-          confirmResult = false;
           setAlertDialog((prev) => ({ ...prev, isOpen: false }));
           if (confirmResolver) {
             confirmResolver(false);
@@ -750,6 +781,32 @@ function App() {
         onCancel={() =>
           setAlertDialog((prev) => ({ ...prev, isOpen: false }))
         }
+      />
+
+      {/* WebDAV 文件冲突弹窗 */}
+      <ConflictDialog
+        isOpen={conflictDialog.isOpen}
+        conflicts={conflictDialog.conflicts}
+        fileActions={conflictDialog.fileActions}
+        onSetFileAction={(remotePath, action) => {
+          const newActions = new Map(conflictDialog.fileActions);
+          newActions.set(remotePath, action);
+          setConflictDialog((prev) => ({ ...prev, fileActions: newActions }));
+        }}
+        onSelectAll={(action) => {
+          const newActions = new Map<string, 'overwrite' | 'skip' | 'rename'>();
+          conflictDialog.conflicts.forEach(conflict => {
+            newActions.set(conflict.remotePath, action);
+          });
+          setConflictDialog((prev) => ({ ...prev, fileActions: newActions }));
+        }}
+        onConfirm={() => {
+          conflictDialog.onConfirm();
+          setConflictDialog((prev) => ({ ...prev, isOpen: false }));
+        }}
+        onCancel={() => {
+          setConflictDialog((prev) => ({ ...prev, isOpen: false }));
+        }}
       />
     </div>
   );

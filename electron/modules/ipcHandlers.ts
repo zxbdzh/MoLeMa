@@ -20,7 +20,7 @@ import {recordingsApi} from "../api/recordingsApi";
 import {usageStatsApi} from "../api/usageStatsApi";
 import {getCurrentDatabasePath, getProxy, getProxyConfig, migrateDatabaseToNewPath, setProxy} from "../database";
 import {getCurrentSessionId} from "../main";
-import { initializeWebDAV, testConnection, syncAll, getConfig, getSyncLogs, WebDAVConfig } from "../services/webdavSyncService";
+import { initializeWebDAV, testConnection, syncAll, getConfig, getSyncLogs, WebDAVConfig, listRemoteFiles, checkConflicts, downloadAll, setMainWindow } from "../services/webdavSyncService";
 
 const store = new Store({
     name: "moyu-data",
@@ -42,6 +42,9 @@ const saveRSSFeeds = (feeds: Record<string, any>) => {
  * 注册所有 IPC 处理程序
  */
 export function registerIPCHandlers() {
+    // 设置 WebDAV 服务的主窗口引用
+    setMainWindow(getMainWindow());
+
     // ==================== RSS 相关 ====================
 
     ipcMain.handle("rss:addFeed", async (_event, url: string) => {
@@ -1101,6 +1104,48 @@ export function registerIPCHandlers() {
         } catch (error) {
             console.error("Failed to set up scheduled sync status change listener:", error);
             return {success: false, error: "Failed to set up listener"};
+        }
+    });
+
+    ipcMain.handle("webdav:listRemoteFiles", async () => {
+        try {
+            const files = await listRemoteFiles();
+            return {success: true, files};
+        } catch (error) {
+            console.error("Failed to list remote files:", error);
+            return {success: false, error: "Failed to list remote files"};
+        }
+    });
+
+    ipcMain.handle("webdav:checkConflicts", async () => {
+        try {
+            const conflicts = await checkConflicts();
+            return {success: true, conflicts};
+        } catch (error) {
+            console.error("Failed to check conflicts:", error);
+            return {success: false, error: "Failed to check conflicts"};
+        }
+    });
+
+    ipcMain.handle("webdav:downloadAll", async (_event, options: {overwrite: string[], skip: string[], rename: string[]}) => {
+        try {
+            console.log('>>> WebDAV: 开始下载', options);
+            const success = await downloadAll(options);
+
+            if (success) {
+                console.log('>>> WebDAV: 下载成功');
+                const currentConfig = getConfig();
+                if (currentConfig) {
+                    store.set("webdav.config", currentConfig);
+                }
+            } else {
+                console.log('>>> WebDAV: 下载失败');
+            }
+
+            return {success};
+        } catch (error) {
+            console.error("Failed to download:", error);
+            return {success: false, error: "Failed to download"};
         }
     });
 

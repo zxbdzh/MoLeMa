@@ -4,7 +4,7 @@ export interface Todo {
   id: string
   text: string
   completed: boolean
-  createdAt: number
+  createdAt?: number
   order?: number  // 添加排序字段
 }
 
@@ -24,6 +24,8 @@ interface TodoStore {
   updateTodo: (id: string, text: string) => void
   clearCompleted: () => void
   updateOrder: (newTodos: Todo[]) => void
+  updatePendingOrder: (newPendingTodos: Todo[]) => Promise<void>
+  updateCompletedOrder: (newCompletedTodos: Todo[]) => Promise<void>
   initialize: () => Promise<void>
   
   // 新增：完成统计

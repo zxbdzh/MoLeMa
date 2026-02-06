@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Server, Lock, User, Check, X, RefreshCw, FileText, Database, Music, Clock, Save } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Server, Lock, User, Check, X, RefreshCw, FileText, Database, Music, Clock, Save, Download } from 'lucide-react';
 
 interface WebDAVConfig {
   serverUrl: string;
@@ -17,6 +17,11 @@ interface WebDAVConfig {
   debounceTime: number;
   lastSyncTime: number;
   nextSyncTime: number;
+}
+
+interface SyncStatus {
+  status: 'idle' | 'connecting' | 'syncing' | 'success' | 'error';
+  message: string;
 }
 
 const WebDAVSettings = () => {
@@ -49,6 +54,11 @@ const WebDAVSettings = () => {
     message: '准备就绪',
   });
 
+  const [downloadStatus, setDownloadStatus] = useState<SyncStatus>({
+    status: 'idle',
+    message: '准备就绪',
+  });
+
   const [showPassword, setShowPassword] = useState(false);
   const [syncLogs, setSyncLogs] = useState<string[]>([]);
   const [scheduledSyncStatus, setScheduledSyncStatus] = useState<{
@@ -73,9 +83,15 @@ const WebDAVSettings = () => {
       setScheduledSyncStatus(status);
     });
 
+    const unsubscribeLogUpdate = window.electronAPI?.webdav?.onLogUpdate?.((logs) => {
+      console.log('WebDAV: 收到日志更新事件，日志数量:', logs.length);
+      setSyncLogs(logs);
+    });
+
     return () => {
       unsubscribeStatus?.();
       unsubscribeScheduledStatus?.();
+      unsubscribeLogUpdate?.();
     };
   }, []);
 
@@ -125,16 +141,20 @@ const WebDAVSettings = () => {
     }
   };
 
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     try {
+      console.log('WebDAV: 开始加载日志...');
       const result = await window.electronAPI?.webdav?.getSyncLogs?.();
       if (result?.success && result.logs) {
+        console.log('WebDAV: 日志加载成功，数量:', result.logs.length);
         setSyncLogs(result.logs);
+      } else {
+        console.log('WebDAV: 日志加载失败或无日志');
       }
     } catch (error) {
       console.error('加载同步日志失败:', error);
     }
-  };
+  }, []);
 
   const handleSaveConfig = async () => {
     try {
@@ -152,10 +172,17 @@ const WebDAVSettings = () => {
   };
 
   const handleTestConnection = async () => {
-    setSyncStatus({ status: 'connecting', message: '正在测试连接...' });
+    setSyncStatus({ status: 'connecting', message: '正在保存配置...' });
     try {
-      const result = await window.electronAPI?.webdav?.testConnection?.();
-      if (result?.success) {
+      const saveResult = await window.electronAPI?.webdav?.setConfig?.(config);
+      if (!saveResult?.success) {
+        setSyncStatus({ status: 'error', message: '配置保存失败' });
+        return;
+      }
+
+      setSyncStatus({ status: 'connecting', message: '正在测试连接...' });
+      const testResult = await window.electronAPI?.webdav?.testConnection?.();
+      if (testResult?.success) {
         setSyncStatus({ status: 'success', message: '连接成功！' });
       } else {
         setSyncStatus({ status: 'error', message: '连接失败' });
@@ -170,8 +197,9 @@ const WebDAVSettings = () => {
     setSyncStatus({ status: 'syncing', message: '开始上传...' });
     try {
       const result = await window.electronAPI?.webdav?.syncAll?.();
+      console.log('WebDAV: 上传结果', result);
       if (result?.success) {
-        await loadLogs();
+        console.log('WebDAV: 上传成功，刷新配置');
         await loadConfig();
         setSyncStatus({ status: 'success', message: '上传完成' });
       } else {
@@ -183,9 +211,80 @@ const WebDAVSettings = () => {
     }
   };
 
+  const handleDownloadAll = async () => {
+    setDownloadStatus({ status: 'syncing', message: '正在检查冲突...' });
+    try {
+      const result = await window.electronAPI?.webdav?.checkConflicts?.();
+      if (result?.success && result.conflicts) {
+        if (result.conflicts.length > 0) {
+          setDownloadStatus({ status: 'idle', message: '准备就绪' });
+
+          // 调用全局冲突弹窗
+          (window as any).showConflictDialog(
+            result.conflicts,
+            new Map(),
+            async (actions: any[]) => {
+              await executeDownload(actions);
+            }
+          );
+        } else {
+          await executeDownload([]);
+        }
+      } else {
+        setDownloadStatus({ status: 'error', message: '检查冲突失败' });
+      }
+    } catch (error) {
+      console.error('检查冲突失败:', error);
+      setDownloadStatus({ status: 'error', message: '检查冲突失败' });
+    }
+  };
+
+  const executeDownload = async (actions: any[]) => {
+    setDownloadStatus({ status: 'syncing', message: '开始下载...' });
+    try {
+      const overwrite: string[] = actions.filter(a => a.action === 'overwrite').map(a => a.remotePath);
+      const skip: string[] = actions.filter(a => a.action === 'skip').map(a => a.remotePath);
+      const rename: string[] = actions.filter(a => a.action === 'rename').map(a => a.remotePath);
+
+      const result = await window.electronAPI?.webdav?.downloadAll?.({ overwrite, skip, rename });
+      if (result?.success) {
+        setDownloadStatus({ status: 'success', message: '下载完成，请重启应用' });
+      } else {
+        setDownloadStatus({ status: 'error', message: '下载失败' });
+      }
+    } catch (error) {
+      console.error('下载失败:', error);
+      setDownloadStatus({ status: 'error', message: '下载失败' });
+    }
+  };
+
   const handleRefreshLogs = async () => {
+    console.log('WebDAV: 手动刷新日志');
     await loadLogs();
   };
+
+  // 防抖刷新日志
+  const lastLoadedRecordingPathRef = useRef(config.remoteRecordingPath);
+  const isInitialLoadRef = useRef(true);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      // 首次加载时直接刷新
+      if (isInitialLoadRef.current) {
+        console.log('WebDAV: 首次加载，刷新日志');
+        isInitialLoadRef.current = false;
+        await loadLogs();
+      }
+      // 路径改变时刷新
+      else if (lastLoadedRecordingPathRef.current !== config.remoteRecordingPath) {
+        console.log('WebDAV: 路径变化，刷新日志', lastLoadedRecordingPathRef.current, '->', config.remoteRecordingPath);
+        lastLoadedRecordingPathRef.current = config.remoteRecordingPath;
+        await loadLogs();
+      }
+    }, 500); // 500ms 防抖
+
+    return () => clearTimeout(timer);
+  }, [config.remoteRecordingPath, loadLogs]);
 
   const formatDate = (timestamp: number) => {
     if (!timestamp) return '从未';
@@ -272,7 +371,7 @@ const WebDAVSettings = () => {
             className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <RefreshCw className={`w-4 h-4 ${syncStatus.status === 'connecting' ? 'animate-spin' : ''}`} />
-            {syncStatus.status === 'connecting' ? '测试中...' : '测试连接'}
+            {syncStatus.status === 'connecting' ? '保存并测试中...' : '测试连接并保存'}
           </button>
         </div>
       </div>
@@ -433,7 +532,7 @@ const WebDAVSettings = () => {
         <div className="flex gap-2">
           <button
             onClick={handleSyncAll}
-            disabled={syncStatus.status === 'syncing'}
+            disabled={syncStatus.status === 'syncing' || downloadStatus.status === 'syncing'}
             className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <RefreshCw className={`w-4 h-4 ${syncStatus.status === 'syncing' ? 'animate-spin' : ''}`} />
@@ -465,6 +564,35 @@ const WebDAVSettings = () => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* 下载操作 */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg">
+        <h3 className="text-lg font-bold mb-4 dark:text-white text-slate-900">下载操作</h3>
+        <p className="text-sm text-slate-500 mb-4">从 WebDAV 服务器下载数据，用于数据恢复和多设备同步</p>
+
+        <button
+          onClick={handleDownloadAll}
+          disabled={downloadStatus.status === 'syncing' || syncStatus.status === 'syncing'}
+          className="w-full px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          {downloadStatus.status === 'syncing' ? '下载中...' : '从远程下载'}
+        </button>
+
+        {/* 下载状态 */}
+        {downloadStatus.status !== 'idle' && (
+          <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
+            <div className="flex items-center gap-2">
+              {downloadStatus.status === 'success' && <Check className="w-4 h-4 text-green-500" />}
+              {downloadStatus.status === 'error' && <X className="w-4 h-4 text-red-500" />}
+              {downloadStatus.status === 'syncing' && <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />}
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                状态: {downloadStatus.message}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 上传日志 */}

@@ -4,6 +4,25 @@ import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 
 type TimeDimension = 'day' | 'week' | 'month' | 'year' | 'all'
 
+interface FeatureUsage {
+  featureId: string;
+  featureName: string;
+  duration: number;
+  count: number;
+  todayDuration: number;
+  todayCount: number;
+  thisWeekDuration: number;
+  thisWeekCount: number;
+  thisMonthDuration: number;
+  thisMonthCount: number;
+}
+
+interface HistoryTrend {
+  date: string;
+  duration: number;
+  sessions: number;
+}
+
 interface StatCardProps {
   title: string
   value: string
@@ -64,8 +83,8 @@ export default function Stats() {
     sessions: 0
   })
   
-  const [featureUsage, setFeatureUsage] = useState([])
-  const [historyTrend, setHistoryTrend] = useState([])
+  const [featureUsage, setFeatureUsage] = useState<FeatureUsage[]>([])
+  const [historyTrend, setHistoryTrend] = useState<HistoryTrend[]>([])
 
   useEffect(() => {
     loadStats()
@@ -73,22 +92,23 @@ export default function Stats() {
 
   const loadStats = async () => {
     try {
-      // 获取应用使用统计
       const appResult = await window.electronAPI?.stats?.getAppUsage?.(timeDimension)
-      if (appResult?.success) {
+      if (appResult?.success && appResult.stats) {
         setAppUsage(appResult.stats)
       }
 
-      // 获取功能使用统计
       const featureResult = await window.electronAPI?.stats?.getFeatureUsage?.(undefined, timeDimension)
-      if (featureResult?.success) {
+      if (featureResult?.success && featureResult.stats) {
         setFeatureUsage(featureResult.stats)
+      } else {
+        setFeatureUsage([])
       }
 
-      // 获取历史趋势
       const historyResult = await window.electronAPI?.stats?.getHistoryTrend?.(timeDimension, 30)
-      if (historyResult?.success) {
+      if (historyResult?.success && historyResult.data) {
         setHistoryTrend(historyResult.data)
+      } else {
+        setHistoryTrend([])
       }
     } catch (error) {
       console.error('Failed to load stats:', error)
@@ -140,6 +160,8 @@ export default function Stats() {
     color: COLORS[index % COLORS.length]
   }))
 
+  const totalDuration = pieData.reduce((sum, item) => sum + item.value, 0)
+
   return (
     <div className="space-y-6">
       {/* 标题和时间维度选择 */}
@@ -186,22 +208,23 @@ export default function Stats() {
                   <Pie
                     data={pieData}
                     cx="50%"
-                    cy="45%"
-                    outerRadius={70}
+                    cy="50%"
+                    outerRadius={80}
                     labelLine={false}
-                    label={(entry) => `${((entry.percent || 0) * 100).toFixed(0)}%`}
+                    label={(entry: any) => {
+                      return `${Math.round((entry.payload.value / totalDuration) * 100)}%`;
+                    }}
                     fill="#8884d8"
                     dataKey="value"
-                    labelStyle={{ fontSize: 12, fontWeight: 600, fill: isDark ? '#E5E7EB' : '#333333' }}
                   >
-                    {pieData.map((entry, index) => (
+                    {pieData.map((_item, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Legend
                     verticalAlign="bottom"
                     height={36}
-                    formatter={(value, entry) => (
+                    formatter={(value) => (
                       <span style={{ color: isDark ? '#E5E7EB' : '#333333', fontSize: 12, fontWeight: 500 }}>
                         {value}
                       </span>
@@ -211,7 +234,7 @@ export default function Stats() {
                     contentStyle={{ backgroundColor: isDark ? '#1E293B' : '#FFFFFF', border: isDark ? 'none' : '1px solid #E2E8F0', borderRadius: '8px', padding: '12px' }}
                     labelStyle={{ color: isDark ? '#FFFFFF' : '#333333', fontSize: 14, fontWeight: 600 }}
                     itemStyle={{ color: isDark ? '#FFFFFF' : '#333333', fontSize: 13 }}
-                    formatter={(value: number) => formatDuration(value)}
+                    formatter={(value: any) => formatDuration(value ?? 0)}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -305,7 +328,7 @@ export default function Stats() {
                   contentStyle={{ backgroundColor: isDark ? '#1E293B' : '#FFFFFF', border: isDark ? 'none' : '1px solid #E2E8F0', borderRadius: '8px', padding: '12px' }}
                   labelStyle={{ color: isDark ? '#FFFFFF' : '#333333', fontSize: 14, fontWeight: 600 }}
                   itemStyle={{ color: isDark ? '#FFFFFF' : '#333333', fontSize: 13 }}
-                  formatter={(value: number) => formatDuration(value)}
+                    formatter={(value: any) => formatDuration(value)}
                 />
                 <Area type="monotone" dataKey="duration" stroke="#3B82F6" fillOpacity={1} fill="url(#colorDuration)" />
               </AreaChart>

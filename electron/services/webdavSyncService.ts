@@ -1,8 +1,14 @@
 import { createClient, WebDAVClient } from 'webdav';
-import { app } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { existsSync, readFileSync, writeFileSync, statSync, readdirSync, unlinkSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import Store from 'electron-store';
+
+let mainWindow: BrowserWindow | null = null;
+
+export function setMainWindow(window: BrowserWindow | null) {
+  mainWindow = window;
+}
 
 const packageJsonPath = join(__dirname, '../../package.json');
 const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
@@ -28,6 +34,29 @@ export interface WebDAVConfig {
   nextSyncTime: number;
 }
 
+export interface ConflictItem {
+  localPath: string;
+  remotePath: string;
+  localMtime: number;
+  remoteMtime: number;
+  size: number;
+  type: 'config' | 'database' | 'recording';
+}
+
+export interface DownloadOptions {
+  overwrite: string[];
+  skip: string[];
+  rename: string[];
+}
+
+export interface RemoteFile {
+  path: string;
+  name: string;
+  size: number;
+  mtime: number;
+  type: 'config' | 'database' | 'recording';
+}
+
 let client: WebDAVClient | null = null;
 let config: WebDAVConfig | null = null;
 let isSyncing = false;
@@ -41,6 +70,14 @@ function addLog(message: string): void {
     syncLogs = syncLogs.slice(-100);
   }
   console.log(`[WebDAV] ${logEntry}`);
+
+  // 通知渲染进程更新日志
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('webdav:logUpdate', {
+      logs: syncLogs.slice(-20),
+      newLog: logEntry
+    });
+  }
 }
 
 export async function initializeWebDAV(webdavConfig: WebDAVConfig): Promise<boolean> {
@@ -445,6 +482,294 @@ export async function syncAll(): Promise<boolean> {
     return success;
   } catch (error) {
     addLog(`上传失败: ${error}`);
+    return false;
+  } finally {
+    isSyncing = false;
+  }
+}
+
+function ensureDirectoryExistence(filePath: string): void {
+  const dir = dirname(filePath);
+  if (!existsSync(dir)) {
+    try {
+      require('fs').mkdirSync(dir, { recursive: true });
+    } catch (error) {
+      // 忽略已存在的错误
+    }
+  }
+}
+
+async function downloadFile(remotePath: string, localPath: string): Promise<boolean> {
+  if (!client) {
+    addLog('WebDAV 客户端未初始化');
+    return false;
+  }
+
+  try {
+    addLog(`下载文件: ${remotePath} -> ${localPath}`);
+    ensureDirectoryExistence(localPath);
+    const content = await client.getFileContents(remotePath, { format: 'binary' });
+    writeFileSync(localPath, content as Buffer);
+    addLog(`下载成功: ${basename(remotePath)}`);
+    return true;
+  } catch (error) {
+    addLog(`下载失败: ${remotePath} - ${error}`);
+    return false;
+  }
+}
+
+export async function listRemoteFiles(): Promise<RemoteFile[]> {
+  if (!client) {
+    addLog('WebDAV 客户端未初始化');
+    return [];
+  }
+
+  try {
+    addLog('开始列出远程文件...');
+    const files: RemoteFile[] = [];
+
+    if (!config) {
+      addLog('配置为空');
+      return [];
+    }
+
+    const audioExtensions = ['.wav', '.mp3', '.m4a', '.webm', '.ogg'];
+
+    if (config.enableSyncConfig) {
+      try {
+        const remoteConfigPath = config.remoteConfigPath + 'moyu-data.json';
+        const exists = await client.exists(remoteConfigPath);
+        if (exists) {
+          const stat = await client.stat(remoteConfigPath);
+          const statData = stat as any;
+          files.push({
+            path: remoteConfigPath,
+            name: 'moyu-data.json',
+            size: statData.size || 0,
+            mtime: statData.lastmod ? new Date(statData.lastmod).getTime() : 0,
+            type: 'config',
+          });
+        }
+      } catch (error) {
+        addLog(`获取配置文件信息失败: ${error}`);
+      }
+
+      try {
+        const remoteDbPath = config.remoteConfigPath + 'moyu.db';
+        const exists = await client.exists(remoteDbPath);
+        if (exists) {
+          const stat = await client.stat(remoteDbPath);
+          const statData = stat as any;
+          files.push({
+            path: remoteDbPath,
+            name: 'moyu.db',
+            size: statData.size || 0,
+            mtime: statData.lastmod ? new Date(statData.lastmod).getTime() : 0,
+            type: 'database',
+          });
+        }
+      } catch (error) {
+        addLog(`获取数据库文件信息失败: ${error}`);
+      }
+    }
+
+    if (config.enableSyncRecordings) {
+      try {
+        const remoteContents = await client.getDirectoryContents(config.remoteRecordingPath);
+        const contents = Array.isArray(remoteContents) ? remoteContents : (remoteContents as any).data || [];
+        for (const item of contents) {
+          if (audioExtensions.some(ext => item.basename.toLowerCase().endsWith(ext))) {
+            const stat = item as any;
+            files.push({
+              path: item.filename,
+              name: item.basename,
+              size: stat.size || 0,
+              mtime: stat.lastmod ? new Date(stat.lastmod).getTime() : 0,
+              type: 'recording',
+            });
+          }
+        }
+      } catch (error) {
+        addLog(`获取录音文件列表失败: ${error}`);
+      }
+    }
+
+    addLog(`找到 ${files.length} 个远程文件`);
+    return files;
+  } catch (error) {
+    addLog(`列出远程文件失败: ${error}`);
+    return [];
+  }
+}
+
+export async function checkConflicts(): Promise<ConflictItem[]> {
+  if (!client || !config) {
+    addLog('WebDAV 客户端未初始化或配置为空');
+    return [];
+  }
+
+  try {
+    addLog('开始检查文件冲突...');
+    const conflicts: ConflictItem[] = [];
+    const remoteFiles = await listRemoteFiles();
+
+    const userDataPath = app.getPath('userData');
+    const recordingsPath = webdavStore.get("recordings.savePath") as string || app.getPath('documents');
+
+    for (const remoteFile of remoteFiles) {
+      let localPath: string;
+
+      if (remoteFile.type === 'config') {
+        localPath = join(userDataPath, remoteFile.name);
+      } else if (remoteFile.type === 'database') {
+        localPath = join(userDataPath, remoteFile.name);
+      } else {
+        localPath = join(recordingsPath, remoteFile.name);
+      }
+
+      if (existsSync(localPath)) {
+        const localStat = statSync(localPath);
+        const localMtime = localStat.mtimeMs;
+
+        if (Math.abs(localMtime - remoteFile.mtime) > 1000) {
+          conflicts.push({
+            localPath,
+            remotePath: remoteFile.path,
+            localMtime,
+            remoteMtime: remoteFile.mtime,
+            size: remoteFile.size,
+            type: remoteFile.type,
+          });
+        }
+      }
+    }
+
+    addLog(`发现 ${conflicts.length} 个冲突文件`);
+    return conflicts;
+  } catch (error) {
+    addLog(`检查冲突失败: ${error}`);
+    return [];
+  }
+}
+
+export async function downloadAll(options: DownloadOptions): Promise<boolean> {
+  if (isSyncing) {
+    addLog('已有同步任务在进行中，跳过');
+    return false;
+  }
+
+  if (!config) {
+    addLog('config 为 null，从 store 读取配置');
+    const store = new Store({ name: "moyu-data" });
+    const storedConfig = store.get("webdav.config") as WebDAVConfig;
+    if (storedConfig) {
+      config = storedConfig;
+      addLog(`从 store 加载配置: serverUrl=${config.serverUrl}, username=${config.username}`);
+    } else {
+      addLog('store 中没有 WebDAV 配置');
+      return false;
+    }
+  }
+
+  if (!client && config) {
+    addLog('WebDAV 客户端未初始化，正在初始化...');
+    addLog(`配置信息: serverUrl=${config.serverUrl}, username=${config.username}`);
+    const result = await initializeWebDAV(config);
+    if (!result) {
+      addLog('WebDAV 客户端初始化失败');
+      return false;
+    }
+  }
+
+  if (!client) {
+    addLog('WebDAV 客户端初始化失败，无法下载');
+    return false;
+  }
+
+  isSyncing = true;
+
+  try {
+    addLog('开始从远程下载数据...');
+    const remoteFiles = await listRemoteFiles();
+
+    if (remoteFiles.length === 0) {
+      addLog('远程没有文件可下载');
+      return true;
+    }
+
+    let success = true;
+    let downloadCount = 0;
+    let skipCount = 0;
+    let overwriteCount = 0;
+    let renameCount = 0;
+
+    const userDataPath = app.getPath('userData');
+    const recordingsPath = webdavStore.get("recordings.savePath") as string || app.getPath('documents');
+
+    for (const remoteFile of remoteFiles) {
+      let localPath: string;
+
+      if (remoteFile.type === 'config') {
+        localPath = join(userDataPath, remoteFile.name);
+      } else if (remoteFile.type === 'database') {
+        localPath = join(userDataPath, remoteFile.name);
+      } else {
+        localPath = join(recordingsPath, remoteFile.name);
+      }
+
+      const localExists = existsSync(localPath);
+
+      if (!localExists) {
+        addLog(`下载新文件: ${remoteFile.name}`);
+        const result = await downloadFile(remoteFile.path, localPath);
+        success = success && result;
+        if (result) {
+          downloadCount++;
+        }
+      } else {
+        if (options.skip.includes(remoteFile.path)) {
+          addLog(`跳过文件: ${remoteFile.name}`);
+          skipCount++;
+          continue;
+        }
+
+        if (options.overwrite.includes(remoteFile.path)) {
+          addLog(`覆盖本地文件: ${remoteFile.name}`);
+          const result = await downloadFile(remoteFile.path, localPath);
+          success = success && result;
+          if (result) {
+            overwriteCount++;
+          }
+          continue;
+        }
+
+        if (options.rename.includes(remoteFile.path)) {
+          const ext = remoteFile.name.includes('.') ? remoteFile.name.substring(remoteFile.name.lastIndexOf('.')) : '';
+          const newName = remoteFile.name.replace(ext, `_远程${ext}`);
+          const newPath = join(dirname(localPath), newName);
+          addLog(`重命名下载: ${remoteFile.name} -> ${newName}`);
+          const result = await downloadFile(remoteFile.path, newPath);
+          success = success && result;
+          if (result) {
+            renameCount++;
+          }
+          continue;
+        }
+
+        addLog(`文件已存在且未指定操作，跳过: ${remoteFile.name}`);
+        skipCount++;
+      }
+    }
+
+    addLog(`下载完成: 新下载 ${downloadCount} 个, 覆盖 ${overwriteCount} 个, 重命名 ${renameCount} 个, 跳过 ${skipCount} 个`);
+
+    if (success) {
+      addLog('所有文件下载成功，请重启应用以应用更改');
+    }
+
+    return success;
+  } catch (error) {
+    addLog(`下载失败: ${error}`);
     return false;
   } finally {
     isSyncing = false;

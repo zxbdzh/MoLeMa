@@ -99,7 +99,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                   onClick={onConfirm}
                   className="px-4 py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium text-sm transition-all duration-200 cursor-pointer shadow-lg shadow-red-500/30"
                 >
-                  直接退出
+                  {confirmText}
                 </button>
               </div>
             </motion.div>

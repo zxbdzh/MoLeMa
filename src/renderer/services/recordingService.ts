@@ -147,10 +147,10 @@ class RecordingService {
       const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
       const arrayBuffer = await blob.arrayBuffer();
       
-      // 转换为 WAV 格式
+       // 转换为 WAV 格式
       const audioContext = new AudioContext();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      const wavArrayBuffer = this.audioBufferToWav(audioBuffer);
+      const wavArrayBuffer = this.audioBufferToWav(audioBuffer!);
       
       // 生成文件名
       const fileNameResult = await window.electronAPI?.recordings?.generateFileName();
@@ -158,10 +158,15 @@ class RecordingService {
       
       // 获取保存路径
       const savePathResult = await window.electronAPI?.recordings?.getSavePath();
-      const savePath = savePathResult?.success ? savePathResult.savePath : '';
-
-      // 保存录音文件到磁盘
-      const saveResult = await window.electronAPI?.recordings?.saveFile(fileName, wavArrayBuffer, savePath || '');
+      let pathToSave = '';
+      if (savePathResult?.success && savePathResult.savePath) {
+        pathToSave = savePathResult.savePath;
+      }
+      const saveResult = await window.electronAPI?.recordings?.saveFile(
+        fileName!,
+        wavArrayBuffer!,
+        pathToSave!
+      );
       
       if (saveResult?.success) {
         // 保存录音记录到数据库
@@ -171,7 +176,7 @@ class RecordingService {
           duration: audioBuffer.duration * 1000,
           file_size: wavArrayBuffer.byteLength,
           device_name: '默认设备',
-          device_id: '',
+          device_id: undefined,
           notes: ''
         });
         

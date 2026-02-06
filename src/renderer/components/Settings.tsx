@@ -79,14 +79,20 @@ export default function Settings() {
         // 获取自动更新设置状态
         window.electronAPI?.autoUpdate?.getEnabled().then((result) => {
             if (result?.success) {
-                setAutoUpdateEnabled(result.enabled);
+                setAutoUpdateEnabled(result.enabled ?? true);
+            }
+        });
+
+        window.electronAPI?.autoLaunch?.getEnabled().then((result) => {
+            if (result?.success && result.enabled !== undefined) {
+                setAutoLaunchEnabled(result.enabled);
             }
         });
 
         // 获取开机自启设置状态
         window.electronAPI?.autoLaunch?.getEnabled().then((result) => {
             if (result?.success) {
-                setAutoLaunchEnabled(result.enabled);
+                setAutoLaunchEnabled(result.enabled ?? false);
             }
         });
 
