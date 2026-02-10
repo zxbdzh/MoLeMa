@@ -105,8 +105,8 @@ export default function Stats() {
       }
 
       const historyResult = await window.electronAPI?.stats?.getHistoryTrend?.(timeDimension, 30)
-      if (historyResult?.success && historyResult.data) {
-        setHistoryTrend(historyResult.data)
+      if (historyResult?.success && historyResult.trend) {
+        setHistoryTrend(historyResult.trend)
       } else {
         setHistoryTrend([])
       }
@@ -203,7 +203,7 @@ export default function Stats() {
           <div className="h-64">
             <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">摸鱼时长分布</h4>
             {pieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                 <PieChart>
                   <Pie
                     data={pieData}
@@ -249,7 +249,7 @@ export default function Stats() {
           <div className="h-64">
             <h4 className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">使用次数</h4>
             {featureUsage.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                 <BarChart data={featureUsage}>
                   <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#E2E8F0'} />
                   <XAxis dataKey="featureName" stroke={isDark ? '#9CA3AF' : '#333333'} tick={{ fill: isDark ? '#9CA3AF' : '#333333' }} />
@@ -313,7 +313,7 @@ export default function Stats() {
         
         {showHistory && (
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
               <AreaChart data={historyTrend}>
                 <defs>
                   <linearGradient id="colorDuration" x1="0" y1="0" x2="0" y2="1">

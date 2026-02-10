@@ -45,6 +45,16 @@ export function registerStatsHandlers() {
         }
     });
 
+    ipcMain.handle("stats:getFeatureUsage", async (_event, featureId, dimension) => {
+        try {
+            const stats = usageStatsApi.getFeatureUsage(featureId, dimension);
+            return { success: true, stats };
+        } catch (error) {
+            console.error("Failed to get feature usage:", error);
+            return { success: false, error: "Failed to get feature usage" };
+        }
+    });
+
     ipcMain.handle("stats:getHistoryTrend", async (_event, dimension, days) => {
         try {
             return { success: true, trend: usageStatsApi.getHistoryTrend(dimension, days) };
