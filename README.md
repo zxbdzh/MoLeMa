@@ -6,7 +6,7 @@
 
 **🎯 专为程序员打造的摸鱼神器**
 
-[![Version](https://img.shields.io/badge/version-0.0.5-blue)](https://github.com/zxbdzh/MoLeMa)
+[![Version](https://img.shields.io/badge/version-0.0.8-blue)](https://github.com/zxbdzh/MoLeMa)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Electron](https://img.shields.io/badge/Electron-39.2.7-9FEAF9)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18.3.1-61DAFB)](https://reactjs.org/)
