@@ -18,22 +18,22 @@ import {
   X,
 } from "lucide-react";
 import iconPng from './assets/icon.png'; // 导入图标文件
-import Tooltip from "./components/Tooltip";
-import RSSPage from "./components/RSSPage";
-import ArticleReader from "./components/ArticleReader";
-import StarBackground from "./components/StarBackground";
-import TodoList from "./components/TodoList";
-import Settings from "./components/Settings";
-import Notes from "./components/NotesNew";
-import WebPages from "./components/WebPages";
-import Stats from "./components/Stats";
-import ConfirmDialog from "./components/ConfirmDialog";
-import AlertDialog from "./components/AlertDialog";
-import ConflictDialog from "./components/ConflictDialog";
-import ErrorBoundary from "./components/ErrorBoundary";
-import {ToastProvider} from "./components/Toast";
+import Tooltip from "./components/ui/Tooltip";
+import RSSPage from "./features/rss/RSSPage";
+import ArticleReader from "./features/rss/ArticleReader";
+import StarBackground from "./components/ui/StarBackground";
+import TodoList from "./features/todo/TodoList";
+import Settings from "./features/settings/Settings";
+import Notes from "./features/notes/NotesNew";
+import WebPages from "./features/webPages/WebPages";
+import Stats from "./features/stats/Stats";
+import ConfirmDialog from "./components/ui/ConfirmDialog";
+import AlertDialog from "./components/ui/AlertDialog";
+import ConflictDialog from "./components/ui/ConflictDialog";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
+import {ToastProvider} from "./components/ui/Toast";
 import {useRSSStore} from "./store/rssStore";
-import {AudioRecorder} from "./components/AudioRecorder";
+import {AudioRecorder} from "./features/recordings/AudioRecorder";
 import recordingService from "./services/recordingService";
 
 type TabType = "home" | "rss" | "notes" | "todo" | "webpages" | "recording" | "settings";

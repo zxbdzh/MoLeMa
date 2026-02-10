@@ -17,9 +17,9 @@ import {
     Trash2,
     X
 } from 'lucide-react'
-import {Card3D} from './3DCard'
+import {Card3D} from '../../components/ui/3DCard'
 import WebPageBrowser from './WebPageBrowser'
-import AlertDialog from './AlertDialog'
+import AlertDialog from '../../components/ui/AlertDialog'
 
 type WebPageCategory = {
     id: number

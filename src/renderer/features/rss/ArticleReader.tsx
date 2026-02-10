@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ArrowLeft, ExternalLink, Loader2, AlertCircle, Star, StarOff } from 'lucide-react'
-import { useRSSStore } from '../store/rssStore'
+import { useRSSStore } from '../../store/rssStore'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 

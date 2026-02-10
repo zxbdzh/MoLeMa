@@ -1,6 +1,6 @@
 import {useState, useEffect} from 'react'
 import {Keyboard, Save, RotateCcw, FolderOpen, Info, Check, X, RefreshCw} from 'lucide-react'
-import {Card3D} from './3DCard'
+import {Card3D} from '../../components/ui/3DCard'
 import WebDAVSettings from './WebDAVSettings'
 
 interface ShortcutConfig {

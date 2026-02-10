@@ -1,8 +1,8 @@
 import React, {useEffect, useState} from 'react';
 import ReactDOM from 'react-dom';
 import {Folder, Mic, MicOff, Play, Trash2} from 'lucide-react';
-import AlertDialog from './AlertDialog';
-import recordingService from '../services/recordingService';
+import AlertDialog from '../../components/ui/AlertDialog';
+import recordingService from '../../services/recordingService';
 
 interface AudioRecorderProps {
     onClose?: () => void;

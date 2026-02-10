@@ -1,9 +1,9 @@
 import {useState} from 'react'
 import {Clock, ExternalLink, Plus, RefreshCw, Rss, Star, StarOff, Trash2} from 'lucide-react'
-import {useRSSStore} from '../store/rssStore'
+import {useRSSStore} from '../../store/rssStore'
 import {formatDistanceToNow} from 'date-fns'
 import {zhCN} from 'date-fns/locale'
-import AlertDialog from './AlertDialog'
+import AlertDialog from '../../components/ui/AlertDialog'
 
 // 预设的 RSS 源
 const PRESET_FEEDS = [

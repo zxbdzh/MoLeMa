@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, Trash2, Save, Eye, EyeOff, Search, FileText, Calendar, Clock, Edit2 } from 'lucide-react'
 import { MarkdownRenderer } from './MarkdownRenderer'
-import { Card3D } from './3DCard'
-import { useWindowVisibility } from '../hooks/useWindowVisibility'
+import { Card3D } from '../../components/ui/3DCard'
+import { useWindowVisibility } from '../../hooks/useWindowVisibility'
 
 interface Note {
   id: number

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Edit2, ListChecks, Circle, CheckCircle, BarChart3, X, Calendar, CalendarDays, CalendarClock, ChevronRight, ChevronDown } from 'lucide-react'
-import { useTodoStore } from '../store/todoStore'
-import { Card3D } from './3DCard'
+import { useTodoStore } from '../../store/todoStore'
+import { Card3D } from '../../components/ui/3DCard'
 import * as Dialog from '@radix-ui/react-dialog'
-import { useWindowVisibility } from '../hooks/useWindowVisibility'
+import { useWindowVisibility } from '../../hooks/useWindowVisibility'
 import { 
   DndContext, 
   closestCenter, 
@@ -22,7 +22,7 @@ import {
   SortableContext
 } from '@dnd-kit/sortable'
 import { CSS as DndCSS } from '@dnd-kit/utilities'
-import type { TodoCompletionStats } from '../types/electron'
+import type { TodoCompletionStats } from '../../types/electron'
 
 interface Todo {
   id: string
