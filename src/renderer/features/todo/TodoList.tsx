@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, Edit2, ListChecks, Circle, CheckCircle, BarChart3, X, Calendar, CalendarDays, CalendarClock, ChevronRight, ChevronDown } from 'lucide-react'
-import { useTodoStore } from '../../store/todoStore'
-import { Card3D } from '../../components/ui/3DCard'
-import * as Dialog from '@radix-ui/react-dialog'
-import { useWindowVisibility } from '../../hooks/useWindowVisibility'
+import { useState, useEffect, useRef } from 'react';
+import { Plus, ListChecks, Circle, CheckCircle, BarChart3, ChevronRight, ChevronDown } from 'lucide-react';
+import { useTodoStore } from '../../store/todoStore';
+import { Card3D } from '../../components/ui/3DCard';
+import { useWindowVisibility } from '../../hooks/useWindowVisibility';
 import { 
   DndContext, 
   closestCenter, 
@@ -12,210 +11,21 @@ import {
   useSensor, 
   useSensors,
   DragEndEvent
-} from '@dnd-kit/core'
+} from '@dnd-kit/core';
 import { 
   arrayMove, 
   sortableKeyboardCoordinates,
-  useSortable,
-  defaultAnimateLayoutChanges,
-  AnimateLayoutChanges,
   SortableContext
-} from '@dnd-kit/sortable'
-import { CSS as DndCSS } from '@dnd-kit/utilities'
-import type { TodoCompletionStats } from '../../types/electron'
+} from '@dnd-kit/sortable';
+
+import { CompletionStatsModal } from './components/CompletionStatsModal';
+import { PaginationButtons } from './components/PaginationButtons';
+import { SortableTodoItem } from './components/SortableTodoItem';
 
 interface Todo {
-  id: string
-  text: string
-  completed: boolean
-}
-
-// 统计弹层组件
-interface CompletionStatsModalProps {
-  stats: TodoCompletionStats | null
-  isOpen: boolean
-  onClose: () => void
-}
-
-function CompletionStatsModal({ stats, isOpen, onClose }: CompletionStatsModalProps) {
-  return (
-    <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md mx-4 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <BarChart3 className="w-6 h-6 text-blue-500" />
-                <Dialog.Title className="text-xl font-bold text-slate-900 dark:text-white">完成统计</Dialog.Title>
-              </div>
-              <Dialog.Close asChild>
-                <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
-                  <X className="w-5 h-5 text-slate-400" />
-                </button>
-              </Dialog.Close>
-            </div>
-            
-            <div className="space-y-4">
-              <StatItem 
-                icon={<Calendar className="w-5 h-5 text-green-500" />}
-                label="今日完成"
-                value={stats?.today || 0}
-                color="text-green-500"
-                bgColor="bg-green-50 dark:bg-green-950/30"
-              />
-              <StatItem 
-                icon={<CalendarDays className="w-5 h-5 text-blue-500" />}
-                label="本周完成"
-                value={stats?.thisWeek || 0}
-                color="text-blue-500"
-                bgColor="bg-blue-50 dark:bg-blue-950/30"
-              />
-              <StatItem 
-                icon={<CalendarClock className="w-5 h-5 text-purple-500" />}
-                label="本月完成"
-                value={stats?.thisMonth || 0}
-                color="text-purple-500"
-                bgColor="bg-purple-50 dark:bg-purple-950/30"
-              />
-              <StatItem 
-                icon={<Calendar className="w-5 h-5 text-orange-500" />}
-                label="本年完成"
-                value={stats?.thisYear || 0}
-                color="text-orange-500"
-                bgColor="bg-orange-50 dark:bg-orange-950/30"
-              />
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                <StatItem 
-                  icon={<BarChart3 className="w-5 h-5 text-yellow-500" />}
-                  label="累计完成"
-                  value={stats?.total || 0}
-                  color="text-yellow-600 dark:text-yellow-400"
-                  bgColor="bg-yellow-50 dark:bg-yellow-950/30"
-                />
-              </div>
-            </div>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
-  )
-}
-
-function StatItem({ icon, label, value, color, bgColor }: { icon: React.ReactNode, label: string, value: number, color: string, bgColor?: string }) {
-  return (
-    <div className={`flex items-center justify-between p-3 rounded-xl ${bgColor || 'bg-slate-100 dark:bg-slate-700/30'}`}>
-      <div className="flex items-center gap-3">
-        {icon}
-        <span className="text-slate-700 dark:text-slate-300">{label}</span>
-      </div>
-      <span className={`text-2xl font-bold ${color}`}>{value}</span>
-    </div>
-  )
-}
-
-// 分页按钮组件
-function PaginationButtons({
-  currentPage,
-  totalPages,
-  maxVisible,
-  onPageChange
-}: {
-  currentPage: number
-  totalPages: number
-  maxVisible: number
-  onPageChange: (page: number) => void
-}) {
-  const pages = []
-
-  // 如果总页数小于等于最大显示数，显示所有页码
-  if (totalPages <= maxVisible) {
-    for (let i = 1; i <= totalPages; i++) {
-      pages.push(
-        <button
-          key={i}
-          onClick={() => onPageChange(i)}
-          className={`px-3 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
-            currentPage === i
-              ? 'bg-blue-500 text-white'
-              : 'bg-slate-800/40 dark:bg-slate-800/40 bg-white/40 border border-slate-700/50 dark:border-slate-700/50 border-slate-200/50 text-slate-600 dark:text-slate-400 hover:bg-slate-700/50 dark:hover:bg-slate-700/50'
-          }`}
-        >
-          {i}
-        </button>
-      )
-    }
-  } else {
-    // 总页数超过最大显示数，使用省略号
-    let startPage = Math.max(2, currentPage - Math.floor((maxVisible - 2) / 2))
-    let endPage = Math.min(totalPages - 1, startPage + maxVisible - 3)
-
-    // 调整起始页，确保显示足够的页码
-    if (endPage - startPage + 1 < maxVisible - 2) {
-      startPage = Math.max(2, endPage - (maxVisible - 3))
-    }
-
-    // 第一页
-    pages.push(
-      <button
-        key={1}
-        onClick={() => onPageChange(1)}
-        className={`px-3 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
-          currentPage === 1
-            ? 'bg-blue-500 text-white'
-            : 'bg-slate-800/40 dark:bg-slate-800/40 bg-white/40 border border-slate-700/50 dark:border-slate-700/50 border-slate-200/50 text-slate-600 dark:text-slate-400 hover:bg-slate-700/50 dark:hover:bg-slate-700/50'
-        }`}
-      >
-        1
-      </button>
-    )
-
-    // 起始省略号
-    if (startPage > 2) {
-      pages.push(<span key="start-ellipsis" className="text-slate-400">...</span>)
-    }
-
-    // 中间页码
-    for (let i = startPage; i <= endPage; i++) {
-      if (i > 1 && i < totalPages) {
-        pages.push(
-          <button
-            key={i}
-            onClick={() => onPageChange(i)}
-            className={`px-3 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
-              currentPage === i
-                ? 'bg-blue-500 text-white'
-                : 'bg-slate-800/40 dark:bg-slate-800/40 bg-white/40 border border-slate-700/50 dark:border-slate-700/50 border-slate-200/50 text-slate-600 dark:text-slate-400 hover:bg-slate-700/50 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            {i}
-          </button>
-        )
-      }
-    }
-
-    // 结束省略号
-    if (endPage < totalPages - 1) {
-      pages.push(<span key="end-ellipsis" className="text-slate-400">...</span>)
-    }
-
-    // 最后一页
-    pages.push(
-      <button
-        key={totalPages}
-        onClick={() => onPageChange(totalPages)}
-        className={`px-3 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
-          currentPage === totalPages
-            ? 'bg-blue-500 text-white'
-            : 'bg-slate-800/40 dark:bg-slate-800/40 bg-white/40 border border-slate-700/50 dark:border-slate-700/50 border-slate-200/50 text-slate-600 dark:text-slate-400 hover:bg-slate-700/50 dark:hover:bg-slate-700/50'
-        }`}
-      >
-        {totalPages}
-      </button>
-    )
-  }
-
-  return <>{pages}</>
+  id: string;
+  text: string;
+  completed: boolean;
 }
 
 export default function TodoList() {
@@ -243,59 +53,59 @@ export default function TodoList() {
     setCompletedPage,
     setCompletedPageSize,
     setCompletedMaxVisiblePages
-  } = useTodoStore()
-  const [newTodo, setNewTodo] = useState('')
-  const [showStatsModal, setShowStatsModal] = useState(false)
-  const [pageInput, setPageInput] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  } = useTodoStore();
+
+  const [newTodo, setNewTodo] = useState('');
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [pageInput, setPageInput] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // 初始化 todo 数据
   useEffect(() => {
-    initialize()
-  }, [initialize])
+    initialize();
+  }, [initialize]);
 
   // 定期刷新统计数据
   useEffect(() => {
     const interval = setInterval(() => {
-      loadCompletionStats()
-    }, 60000) // 每分钟刷新一次
+      loadCompletionStats();
+    }, 60000); // 每分钟刷新一次
     
-    return () => clearInterval(interval)
-  }, [loadCompletionStats])
+    return () => clearInterval(interval);
+  }, [loadCompletionStats]);
 
   // 窗口可见时聚焦输入框
   useWindowVisibility(() => {
     setTimeout(() => {
-      inputRef.current?.focus()
-    }, 100)
-  })
+      inputRef.current?.focus();
+    }, 100);
+  });
 
   // 组件挂载时聚焦输入框
   useEffect(() => {
     setTimeout(() => {
-      inputRef.current?.focus()
-    }, 100)
-  }, [])
+      inputRef.current?.focus();
+    }, 100);
+  }, []);
 
   const handleAddTodo = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (newTodo.trim()) {
-      addTodo(newTodo.trim())
-      setNewTodo('')
+      addTodo(newTodo.trim());
+      setNewTodo('');
       // 重新聚焦输入框
       setTimeout(() => {
-        inputRef.current?.focus()
-      }, 50)
+        inputRef.current?.focus();
+      }, 50);
     }
-  }
+  };
 
   const handleStatsModalClose = () => {
-    setShowStatsModal(false)
-    // Radix UI Dialog 会自动处理焦点管理，关闭后会自动返回之前的焦点
-  }
+    setShowStatsModal(false);
+  };
 
-  const completedCount = todos.filter((t) => t.completed).length
-  const totalCount = todos.length
+  const completedCount = todos.filter((t) => t.completed).length;
+  const totalCount = todos.length;
 
   // 传感器配置
   const sensors = useSensors(
@@ -303,54 +113,43 @@ export default function TodoList() {
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
-  )
+  );
 
   const handleDragEnd = (event: DragEndEvent) => {
-    console.log('Drag end event:', event)
-    const { active, over } = event
-    console.log('Active ID:', active.id)
-    console.log('Over ID:', over?.id)
-    console.log('Pending todos:', pendingTodos.map(t => ({ id: t.id, text: t.text })))
-    console.log('Completed todos:', completedTodos.map(t => ({ id: t.id, text: t.text })))
+    const { active, over } = event;
     
     if (over && active.id !== over.id) {
-      const activeTodo = pendingTodos.find((t: Todo) => t.id === active.id)
-      const overTodo = pendingTodos.find((t: Todo) => t.id === over.id)
+      const activeTodo = pendingTodos.find((t: Todo) => t.id === active.id);
+      const overTodo = pendingTodos.find((t: Todo) => t.id === over.id);
       
-      console.log('Active todo:', activeTodo)
-      console.log('Over todo:', overTodo)
-      
-      let sourceList: Todo[]
-      let targetList: Todo[]
+      let sourceList: Todo[];
+      let targetList: Todo[];
       
       if (activeTodo && overTodo) {
         // 都在待完成列表中
-        sourceList = pendingTodos
-        targetList = pendingTodos
+        sourceList = pendingTodos;
+        targetList = pendingTodos;
       } else {
         // 都在已完成列表中
-        sourceList = completedTodos
-        targetList = completedTodos
+        sourceList = completedTodos;
+        targetList = completedTodos;
       }
       
-      const oldIndex = sourceList.findIndex((item: Todo) => item.id === active.id)
-      const newIndex = targetList.findIndex((item: Todo) => item.id === over.id)
+      const oldIndex = sourceList.findIndex((item: Todo) => item.id === active.id);
+      const newIndex = targetList.findIndex((item: Todo) => item.id === over.id);
       
-      console.log('Old index:', oldIndex, 'New index:', newIndex)
-      
-      const newSourceList = arrayMove(sourceList, oldIndex, newIndex)
-      console.log('New list:', newSourceList)
+      const newSourceList = arrayMove(sourceList, oldIndex, newIndex);
       
       // 更新对应的列表
       if (activeTodo && overTodo) {
         // 更新待完成列表
-        updatePendingOrder(newSourceList)
+        updatePendingOrder(newSourceList);
       } else {
         // 更新已完成列表
-        updateCompletedOrder(newSourceList)
+        updateCompletedOrder(newSourceList);
       }
     }
-  }
+  };
 
   return (
     <DndContext
@@ -504,10 +303,10 @@ export default function TodoList() {
                           onChange={(e) => setPageInput(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                              const page = parseInt(pageInput)
+                              const page = parseInt(pageInput);
                               if (page >= 1 && page <= completedTotalPages) {
-                                setCompletedPage(page)
-                                setPageInput('')
+                                setCompletedPage(page);
+                                setPageInput('');
                               }
                             }
                           }}
@@ -516,10 +315,10 @@ export default function TodoList() {
                         />
                         <button
                           onClick={() => {
-                            const page = parseInt(pageInput)
+                            const page = parseInt(pageInput);
                             if (page >= 1 && page <= completedTotalPages) {
-                              setCompletedPage(page)
-                              setPageInput('')
+                              setCompletedPage(page);
+                              setPageInput('');
                             }
                           }}
                           disabled={!pageInput || parseInt(pageInput) < 1 || parseInt(pageInput) > completedTotalPages}
@@ -598,165 +397,5 @@ export default function TodoList() {
         onClose={handleStatsModalClose}
       />
     </DndContext>
-  )
-}
-
-// Sortable Todo Item 组件
-function SortableTodoItem({ todo, toggleTodo, deleteTodo, updateTodo }: { 
-  todo: Todo, 
-  toggleTodo: (id: string) => void, 
-  deleteTodo: (id: string) => void, 
-  updateTodo: (id: string, text: string) => void 
-}) {
-  const animateLayoutChanges: AnimateLayoutChanges = (args) =>
-    defaultAnimateLayoutChanges({ ...args, wasDragging: true })
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({ 
-    id: todo.id,
-    animateLayoutChanges
-  })
-
-  const style = {
-    transform: DndCSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 100 : 1,
-    position: 'relative' as const
-  }
-
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editingText, setEditingText] = useState(todo.text)
-
-  const handleEditStart = (text: string) => {
-    setEditingId(todo.id)
-    setEditingText(text)
-  }
-
-  const handleEditSave = () => {
-    if (editingText.trim()) {
-      updateTodo(todo.id, editingText.trim())
-    }
-    setEditingId(null)
-    setEditingText('')
-  }
-
-  const handleEditCancel = () => {
-    setEditingId(null)
-    setEditingText('')
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`group overflow-hidden rounded-lg border transition-all ${
-        todo.completed
-          ? 'bg-green-500/5 border-green-500/20 dark:bg-green-500/5 dark:border-green-500/20 bg-green-50/30 border-green-200/30'
-          : 'bg-slate-800/40 border-slate-700/50 dark:bg-slate-800/40 dark:border-slate-700/50 bg-white/40 border-slate-200/50'
-      } hover:border-blue-500/30 dark:hover:border-blue-500/30 hover:border-blue-300/30`}
-    >
-      <div className="p-4 flex items-center gap-4">
-        {/* 拖动手柄 - 六点图标，增大尺寸 */}
-        <div 
-          className="flex-shrink-0 cursor-grab active:cursor-grabbing p-2 select-none touch-none" 
-          {...attributes} 
-          {...listeners}
-          role="button"
-          aria-label="拖动排序"
-          tabIndex={0}
-        >
-          <svg 
-            width="24" 
-            height="24" 
-            viewBox="0 0 24 24" 
-            fill="currentColor" 
-            className="w-6 h-6 text-slate-400 pointer-events-none"
-          >
-            <circle cx="8" cy="8" r="2" />
-            <circle cx="8" cy="12" r="2" />
-            <circle cx="8" cy="16" r="2" />
-            <circle cx="16" cy="8" r="2" />
-            <circle cx="16" cy="12" r="2" />
-            <circle cx="16" cy="16" r="2" />
-          </svg>
-        </div>
-        
-        {/* 完成状态图标 - 增大尺寸 */}
-        <div 
-          className="flex-shrink-0 cursor-pointer" 
-          onClick={() => toggleTodo(todo.id)}
-          data-no-dnd="true"
-        >
-          {todo.completed ? (
-            <CheckCircle className="w-6 h-6 text-green-400" />
-          ) : (
-            <Circle className="w-6 h-6 text-gray-500" />
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          {editingId === todo.id ? (
-            <input
-              type="text"
-              value={editingText}
-              onChange={(e) => setEditingText(e.target.value)}
-              onBlur={handleEditSave}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleEditSave()
-                if (e.key === 'Escape') handleEditCancel()
-              }}
-              autoFocus
-              onClick={(e) => e.stopPropagation()}
-              data-no-dnd="true"
-              className="w-full px-3 py-1 bg-slate-800/50 dark:bg-slate-800/50 bg-white/50 border border-slate-700 dark:border-slate-700 border-slate-200 rounded focus:outline-none focus:border-blue-500/50 dark:text-white text-slate-900 transition-colors"
-            />
-          ) : (
-            <span
-              className={`text-base truncate ${
-                todo.completed
-                  ? 'text-slate-500 dark:text-slate-300 text-slate-600 line-through'
-                  : 'text-slate-200 dark:text-slate-100 text-slate-800'
-              }`}
-            >
-              {todo.text}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {!editingId && !todo.completed && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                handleEditStart(todo.text)
-              }}
-              className="p-2 hover:bg-slate-800/50 dark:hover:bg-slate-800/50 hover:bg-slate-200 rounded transition-colors cursor-pointer"
-              title="编辑"
-              data-no-dnd="true"
-            >
-              <Edit2 className="w-4 h-4 text-gray-400" />
-            </button>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              deleteTodo(todo.id)
-            }}
-            className="p-2 hover:bg-red-500/20 rounded transition-colors cursor-pointer"
-            title="删除"
-            data-no-dnd="true"
-          >
-            <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-400" />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+  );
 }
