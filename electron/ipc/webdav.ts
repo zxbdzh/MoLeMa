@@ -64,6 +64,24 @@ export function registerWebDAVHandlers() {
         }
     });
 
+    ipcMain.handle("webdav:clearLogs", async () => {
+        try {
+            webdavService.clearLogs();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: "Failed to clear logs" };
+        }
+    });
+
+    ipcMain.handle("webdav:forceSync", async (_event, direction: 'upload' | 'download') => {
+        try {
+            await webdavService.forceSync(direction);
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: "Failed to force sync" };
+        }
+    });
+
     ipcMain.handle("webdav:downloadAll", async (_event, _options: any) => {
         try {
             await webdavService.syncAll();

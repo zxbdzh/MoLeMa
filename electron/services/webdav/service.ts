@@ -162,9 +162,74 @@ export class WebDAVService {
     }
   }
 
+  clearLogs() {
+    this.syncLogs = [];
+    this.addLog('同步日志已清除');
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('webdav:logUpdate', this.syncLogs);
+    }
+  }
+
+  async forceSync(direction: 'upload' | 'download') {
+    if (this.isSyncing || !this.config || !this.config.serverUrl) {
+        if (this.isSyncing) this.addLog('已有同步任务在进行中', 'warn');
+        return;
+    }
+
+    this.isSyncing = true;
+    this.updateStatus({ isSyncing: true });
+    const strategy = direction === 'upload' ? 'force-upload' : 'force-download';
+    this.addLog(`开始强制同步 (${direction === 'upload' ? '覆盖远程' : '覆盖本地'})...`);
+
+    try {
+        const userDataPath = app.getPath('userData');
+        const recordingsPath = store.get("recordings.savePath") as string || app.getPath('documents');
+
+        // 1. Config and Database
+        if (this.config.enableSyncConfig) {
+            const localPath = join(userDataPath, 'moyu-data.json');
+            const remotePath = this.config.remoteConfigPath + 'moyu-data.json';
+            await syncEngine.syncFile(localPath, remotePath, strategy);
+        }
+        if (this.config.enableSyncDatabase) {
+            const localPath = join(userDataPath, 'moyu.db');
+            const remotePath = this.config.remoteConfigPath + 'moyu.db';
+            await syncEngine.syncFile(localPath, remotePath, strategy);
+        }
+
+        // 2. Recordings
+        if (this.config.enableSyncRecordings && existsSync(recordingsPath)) {
+            const audioExtensions = ['.wav', '.mp3', '.m4a', '.webm', '.ogg'];
+            if (direction === 'upload') {
+                const localFiles = readdirSync(recordingsPath).filter(f => audioExtensions.some(ext => f.toLowerCase().endsWith(ext)));
+                for (const file of localFiles) {
+                    await syncEngine.syncFile(join(recordingsPath, file), this.config.remoteRecordingPath + file, 'force-upload');
+                }
+            } else {
+                const remoteFiles = await syncEngine.getRemoteFiles();
+                for (const remote of remoteFiles) {
+                    if (remote.type === 'recording') {
+                        await syncEngine.download(remote.path, join(recordingsPath, remote.name));
+                    }
+                }
+            }
+        }
+
+        this.config.lastSyncTime = Date.now();
+        store.set('webdav.config', this.config);
+        this.addLog(`强制同步 (${direction}) 成功完成`);
+        this.updateStatus({ isSyncing: false, lastSyncTime: this.config.lastSyncTime });
+    } catch (error: any) {
+        this.addLog(`强制同步失败: ${error.message || error}`, 'error');
+        this.updateStatus({ isSyncing: false });
+    } finally {
+        this.isSyncing = false;
+    }
+  }
+
   startRealtimeSync() {
     this.stopRealtimeSync();
-    if (!this.config || this.config.syncMode !== 'realtime') return;
+    if (!this.config || this.config.syncMode !== 'realtime' || !this.config.serverUrl) return;
 
     const userDataPath = app.getPath('userData');
     const recordingsPath = store.get("recordings.savePath") as string || app.getPath('documents');
@@ -174,20 +239,40 @@ export class WebDAVService {
     if (this.config.enableSyncDatabase) watchPaths.push(join(userDataPath, 'moyu.db'));
     if (this.config.enableSyncRecordings && existsSync(recordingsPath)) watchPaths.push(recordingsPath);
 
-    if (watchPaths.length === 0) return;
+    if (watchPaths.length === 0) {
+        this.addLog('实时监控未启动：没有需要监控的路径', 'warn');
+        return;
+    }
+
+    this.addLog(`正在启动实时监控，监控路径: ${watchPaths.length} 个`);
 
     this.watcher = chokidar.watch(watchPaths, {
       ignoreInitial: true,
       persistent: true,
-      depth: 0
+      depth: 0,
+      awaitWriteFinish: {
+        stabilityThreshold: 2000,
+        pollInterval: 100
+      }
+    });
+
+    this.watcher.on('add', (path) => {
+        if (path.includes(recordingsPath)) {
+            this.addLog(`检测到新文件: ${basename(path)}，准备同步...`);
+            this.handleFileChange(path);
+        }
     });
 
     this.watcher.on('change', (path) => {
-      this.addLog(`检测到本地文件变动: ${basename(path)}，准备上传...`);
+      this.addLog(`检测到文件变动: ${basename(path)}，准备同步...`);
       this.handleFileChange(path);
     });
 
-    this.addLog('实时监控已启动');
+    this.watcher.on('error', (error) => {
+        this.addLog(`监控出错: ${error}`, 'error');
+    });
+
+    this.addLog('实时监控已成功启动');
   }
 
   private async handleFileChange(path: string) {
@@ -201,12 +286,15 @@ export class WebDAVService {
       remotePath = this.config.remoteRecordingPath + fileName;
     }
 
-    const result = await syncEngine.upload(path, remotePath);
-    if (result) {
-        this.addLog(`变动文件上传成功: ${fileName}`);
+    // 使用 syncFile 代替 upload，以正确处理时间戳和增量逻辑
+    const result = await syncEngine.syncFile(path, remotePath, 'upload-newer');
+    if (result === 'uploaded') {
+        this.addLog(`文件已自动同步到云端: ${fileName}`);
         this.config.lastSyncTime = Date.now();
         store.set('webdav.config', this.config);
         this.updateStatus({ lastSyncTime: this.config.lastSyncTime });
+    } else if (result === 'skipped') {
+        this.addLog(`文件内容无变动，跳过同步: ${fileName}`, 'debug');
     }
   }
 

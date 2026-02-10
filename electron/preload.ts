@@ -334,6 +334,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     testConnection: () => ipcRenderer.invoke("webdav:testConnection"),
     syncAll: () => ipcRenderer.invoke("webdav:syncAll"),
     getSyncLogs: () => ipcRenderer.invoke("webdav:getSyncLogs"),
+    clearLogs: () => ipcRenderer.invoke("webdav:clearLogs"),
+    forceSync: (direction: 'upload' | 'download') => ipcRenderer.invoke("webdav:forceSync", direction),
     isWatching: () => ipcRenderer.invoke("webdav:isWatching"),
     startScheduledSync: () => ipcRenderer.invoke("webdav:startScheduledSync"),
     stopScheduledSync: () => ipcRenderer.invoke("webdav:stopScheduledSync"),

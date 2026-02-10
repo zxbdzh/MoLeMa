@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Server, Lock, User, Check, X, RefreshCw, FileText, Database, Music, Clock, Save, Download, Activity } from 'lucide-react';
+import { Server, Lock, User, Check, X, RefreshCw, FileText, Database, Music, Clock, Save, Download, Activity, CloudUpload, CloudDownload, Trash2 } from 'lucide-react';
 import { WebDAVConfig, SyncLog, SyncStatus } from '@shared/types/electron';
 
 const WebDAVSettings = () => {
@@ -126,6 +126,24 @@ const WebDAVSettings = () => {
       await window.electronAPI?.webdav?.syncAll?.();
     } catch (error) {
       console.error('Sync failed:', error);
+    }
+  };
+
+  const handleForceSync = async (direction: 'upload' | 'download') => {
+    if (syncStatus.isSyncing) return;
+    try {
+      await window.electronAPI?.webdav?.forceSync?.(direction);
+    } catch (error) {
+      console.error('Force sync failed:', error);
+    }
+  };
+
+  const handleClearLogs = async () => {
+    try {
+      await (window.electronAPI as any).webdav?.clearLogs?.();
+      setSyncLogs([]);
+    } catch (error) {
+      console.error('Failed to clear logs:', error);
     }
   };
 
@@ -289,6 +307,25 @@ const WebDAVSettings = () => {
                 {syncStatus.isSyncing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                 {syncStatus.isSyncing ? '正在同步数据...' : '立即执行全量同步'}
               </button>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                    onClick={() => handleForceSync('upload')}
+                    disabled={syncStatus.isSyncing}
+                    className="py-3 bg-amber-600/10 hover:bg-amber-600/20 text-amber-600 dark:text-amber-500 border border-amber-600/20 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                    <CloudUpload className="w-4 h-4" />
+                    覆盖远程
+                </button>
+                <button
+                    onClick={() => handleForceSync('download')}
+                    disabled={syncStatus.isSyncing}
+                    className="py-3 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-600/20 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                    <CloudDownload className="w-4 h-4" />
+                    覆盖本地
+                </button>
+              </div>
             </div>
           </section>
         </div>
@@ -307,9 +344,10 @@ const WebDAVSettings = () => {
             </h3>
           </div>
           <button 
-            onClick={() => setSyncLogs([])}
-            className="text-xs text-slate-500 hover:text-white transition-colors"
+            onClick={handleClearLogs}
+            className="text-xs text-slate-500 hover:text-white transition-colors flex items-center gap-1"
           >
+            <Trash2 className="w-3 h-3" />
             CLEAR_CONSOLE
           </button>
         </div>
