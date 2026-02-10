@@ -341,7 +341,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     checkConflicts: () => ipcRenderer.invoke("webdav:checkConflicts"),
     downloadAll: (options: any) => ipcRenderer.invoke("webdav:downloadAll", options),
     onLogUpdate: (callback: (logs: string[]) => void) => {
-      const listener = (_event: any, data: { logs: string[]; newLog: string }) => callback(data.logs);
+      const listener = (_event: any, logs: string[]) => callback(logs);
       ipcRenderer.on("webdav:logUpdate", listener);
       return () => ipcRenderer.removeListener("webdav:logUpdate", listener);
     },

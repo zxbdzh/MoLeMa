@@ -45,9 +45,28 @@ export class WebDAVService {
   }
 
   async initialize() {
+    const defaultConfig: WebDAVConfig = {
+      serverUrl: '',
+      username: '',
+      password: '',
+      remoteConfigPath: '/MoLeMa-config/',
+      remoteRecordingPath: '/MoLeMa-recordings/',
+      enableSyncConfig: true,
+      enableSyncDatabase: true,
+      enableSyncRecordings: true,
+      syncMode: 'manual',
+      debounceTime: 5,
+      lastSyncTime: 0,
+    };
+
     const savedConfig = store.get('webdav.config') as WebDAVConfig;
-    if (savedConfig) {
-      this.config = savedConfig;
+    this.config = { ...defaultConfig, ...savedConfig };
+    
+    // Normalize paths
+    if (!this.config.remoteConfigPath.endsWith('/')) this.config.remoteConfigPath += '/';
+    if (!this.config.remoteRecordingPath.endsWith('/')) this.config.remoteRecordingPath += '/';
+
+    if (this.config.serverUrl) {
       webdavClient.initialize(this.config);
       syncEngine.setConfig(this.config);
       this.addLog('WebDAV 服务初始化完成');
@@ -59,6 +78,14 @@ export class WebDAVService {
   }
 
   async updateConfig(newConfig: WebDAVConfig) {
+    // Normalize paths
+    if (newConfig.remoteConfigPath && !newConfig.remoteConfigPath.endsWith('/')) {
+        newConfig.remoteConfigPath += '/';
+    }
+    if (newConfig.remoteRecordingPath && !newConfig.remoteRecordingPath.endsWith('/')) {
+        newConfig.remoteRecordingPath += '/';
+    }
+
     this.config = newConfig;
     store.set('webdav.config', newConfig);
     webdavClient.initialize(newConfig);
@@ -73,8 +100,9 @@ export class WebDAVService {
   }
 
   async syncAll() {
-    if (this.isSyncing || !this.config) {
+    if (this.isSyncing || !this.config || !this.config.serverUrl) {
         if (this.isSyncing) this.addLog('已有同步任务在进行中，请稍候', 'warn');
+        if (!this.config?.serverUrl) this.addLog('未配置服务器地址，无法同步', 'error');
         return;
     }
     
@@ -88,12 +116,18 @@ export class WebDAVService {
 
       // 1. Config and Database
       if (this.config.enableSyncConfig) {
-        this.addLog('正在同步配置文件...');
-        await syncEngine.syncFile(join(userDataPath, 'moyu-data.json'), this.config.remoteConfigPath + 'moyu-data.json');
+        const localConfigPath = join(userDataPath, 'moyu-data.json');
+        if (existsSync(localConfigPath)) {
+            this.addLog('正在同步配置文件...');
+            await syncEngine.syncFile(localConfigPath, this.config.remoteConfigPath + 'moyu-data.json');
+        }
       }
       if (this.config.enableSyncDatabase) {
-        this.addLog('正在同步数据库...');
-        await syncEngine.syncFile(join(userDataPath, 'moyu.db'), this.config.remoteConfigPath + 'moyu.db');
+        const localDbPath = join(userDataPath, 'moyu.db');
+        if (existsSync(localDbPath)) {
+            this.addLog('正在同步数据库...');
+            await syncEngine.syncFile(localDbPath, this.config.remoteConfigPath + 'moyu.db');
+        }
       }
 
       // 2. Recordings
@@ -106,9 +140,11 @@ export class WebDAVService {
           await syncEngine.syncFile(join(recordingsPath, file), this.config.remoteRecordingPath + file);
         }
         
+        this.addLog('检查远端文件是否有更新...');
         const remoteFiles = await syncEngine.getRemoteFiles();
         for (const remote of remoteFiles) {
           if (remote.type === 'recording' && !localFiles.includes(remote.name)) {
+             this.addLog(`下载远端新增录音: ${remote.name}`);
              await syncEngine.download(remote.path, join(recordingsPath, remote.name));
           }
         }
@@ -118,8 +154,8 @@ export class WebDAVService {
       store.set('webdav.config', this.config);
       this.addLog('全量同步成功完成');
       this.updateStatus({ isSyncing: false, lastSyncTime: this.config.lastSyncTime });
-    } catch (error) {
-      this.addLog(`同步失败: ${error}`, 'error');
+    } catch (error: any) {
+      this.addLog(`同步失败: ${error.message || error}`, 'error');
       this.updateStatus({ isSyncing: false });
     } finally {
       this.isSyncing = false;

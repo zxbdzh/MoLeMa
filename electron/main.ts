@@ -8,7 +8,6 @@ import {usageStatsApi} from "./api/usageStatsApi";
 import {testRSSFeed} from "./services/rssFetcher";
 import {testWebsiteNews} from "./services/websiteNewsFetcher";
 import {newsApi} from "./api/newsApi";
-import {WebDAVConfig} from "./services/webdavSyncService";
 
 // 导入管理模块
 import {
