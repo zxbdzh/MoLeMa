@@ -1,133 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
-import { Server, Lock, User, Check, X, RefreshCw, FileText, Database, Music, Save, CloudUpload, CloudDownload, Trash2 } from 'lucide-react';
-import { WebDAVConfig, SyncLog, SyncStatus } from '@shared/types/electron';
+import { useState } from 'react';
+import { Server, Lock, User, Check, X, RefreshCw, FileText, Database, Music, CloudUpload, CloudDownload } from 'lucide-react';
+import { useWebDAV } from '../../hooks/useWebDAV';
+import SyncLogger from './components/SyncLogger';
 
 const WebDAVSettings = () => {
-  const [config, setConfig] = useState<WebDAVConfig>({
-    serverUrl: '',
-    username: '',
-    password: '',
-    remoteConfigPath: '/MoLeMa-config/',
-    remoteRecordingPath: '/MoLeMa-recordings/',
-    enableSyncConfig: true,
-    enableSyncDatabase: true,
-    enableSyncRecordings: true,
-    lastSyncTime: 0,
-  });
-
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
-    isSyncing: false,
-    lastSyncTime: 0
-  });
-
-  const [uiStatus, setUiStatus] = useState<{
-    status: 'idle' | 'connecting' | 'success' | 'error';
-    message: string;
-  }>({
-    status: 'idle',
-    message: '准备就绪',
-  });
+  const {
+    config,
+    syncStatus,
+    uiStatus,
+    syncLogs,
+    updateConfigField,
+    testAndSave,
+    upload,
+    download,
+    clearLogs
+  } = useWebDAV();
 
   const [showPassword, setShowPassword] = useState(false);
-  const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
-
-  useEffect(() => {
-    loadConfig();
-
-    const unsubscribeStatus = window.electronAPI?.webdav?.onStatusChange?.((status: Partial<SyncStatus>) => {
-      setSyncStatus(prev => ({ ...prev, ...status }));
-      if (status.lastSyncTime) {
-          setConfig(prev => ({ ...prev, lastSyncTime: status.lastSyncTime! }));
-      }
-    });
-
-    const unsubscribeNewLog = (window.electronAPI as any).webdav?.onLogUpdate?.((logs: any) => {
-        setSyncLogs([...logs].reverse());
-    });
-
-    return () => {
-      unsubscribeStatus?.();
-      unsubscribeNewLog?.();
-    };
-  }, []);
-
-  const loadConfig = async () => {
-    try {
-      const result = await window.electronAPI?.webdav?.getConfig?.();
-      if (result?.success && result.config) {
-        setConfig(result.config);
-        setSyncStatus(prev => ({ ...prev, lastSyncTime: result.config.lastSyncTime }));
-      }
-    } catch (error) {
-      console.error('Failed to load WebDAV config:', error);
-    }
-  };
-
-  const handleSaveConfig = async (silent = false) => {
-    try {
-      if (!silent) setUiStatus({ status: 'connecting', message: '正在保存配置...' });
-      const result = await window.electronAPI?.webdav?.setConfig?.(config);
-      if (result?.success) {
-        if (!silent) {
-            setUiStatus({ status: 'success', message: '配置已保存' });
-            setTimeout(() => setUiStatus({ status: 'idle', message: '准备就绪' }), 2000);
-        }
-        return true;
-      }
-      return false;
-    } catch (error) {
-      if (!silent) setUiStatus({ status: 'error', message: '配置保存失败' });
-      return false;
-    }
-  };
-
-  const handleTestAndSave = async () => {
-    setUiStatus({ status: 'connecting', message: '正在保存并测试...' });
-    try {
-      const saveSuccess = await handleSaveConfig(true);
-      if (!saveSuccess) {
-          setUiStatus({ status: 'error', message: '配置保存失败' });
-          return;
-      }
-
-      const testResult = await window.electronAPI?.webdav?.testConnection?.();
-      if (testResult?.success) {
-        setUiStatus({ status: 'success', message: '连接测试成功并已保存！' });
-        setTimeout(() => setUiStatus({ status: 'idle', message: '准备就绪' }), 3000);
-      } else {
-        setUiStatus({ status: 'error', message: '连接测试失败，请检查配置' });
-      }
-    } catch (error) {
-      setUiStatus({ status: 'error', message: '测试过程出错' });
-    }
-  };
-
-  const handleUpload = async () => {
-    if (syncStatus.isSyncing) return;
-    try {
-      await window.electronAPI?.webdav?.upload?.();
-    } catch (error) {
-      console.error('Upload failed:', error);
-    }
-  };
-
-  const handleDownload = async () => {
-    if (syncStatus.isSyncing) return;
-    try {
-      await window.electronAPI?.webdav?.download?.();
-    } catch (error) {
-      console.error('Download failed:', error);
-    }
-  };
-
-  const handleClearLogs = async () => {
-    try {
-      await (window.electronAPI as any).webdav?.clearLogs?.();
-      setSyncLogs([]);
-    } catch (error) {
-      console.error('Failed to clear logs:', error);
-    }
-  };
 
   const formatDate = (timestamp: number) => {
     if (!timestamp) return '从未';
@@ -157,7 +46,7 @@ const WebDAVSettings = () => {
                 <input
                   type="url"
                   value={config.serverUrl}
-                  onChange={(e) => setConfig({ ...config, serverUrl: e.target.value })}
+                  onChange={(e) => updateConfigField('serverUrl', e.target.value)}
                   placeholder="https://dav.jianguoyun.com/dav/"
                   className="mt-1.5 w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
@@ -171,7 +60,7 @@ const WebDAVSettings = () => {
                     <input
                       type="text"
                       value={config.username}
-                      onChange={(e) => setConfig({ ...config, username: e.target.value })}
+                      onChange={(e) => updateConfigField('username', e.target.value)}
                       className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     />
                   </div>
@@ -183,7 +72,7 @@ const WebDAVSettings = () => {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={config.password}
-                      onChange={(e) => setConfig({ ...config, password: e.target.value })}
+                      onChange={(e) => updateConfigField('password', e.target.value)}
                       className="w-full pl-11 pr-12 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     />
                     <button 
@@ -199,7 +88,7 @@ const WebDAVSettings = () => {
 
             <div className="mt-8">
                 <button
-                onClick={handleTestAndSave}
+                onClick={testAndSave}
                 disabled={uiStatus.status === 'connecting' || syncStatus.isSyncing}
                 className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50"
                 >
@@ -224,7 +113,7 @@ const WebDAVSettings = () => {
               ].map(item => (
                 <button
                   key={item.key}
-                  onClick={() => setConfig({ ...config, [item.key]: !(config as any)[item.key] })}
+                  onClick={() => updateConfigField(item.key as any, !(config as any)[item.key])}
                   className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
                     (config as any)[item.key] 
                       ? 'border-blue-500/50 bg-blue-50/50 dark:bg-blue-900/20' 
@@ -255,7 +144,7 @@ const WebDAVSettings = () => {
               
               <div className="flex flex-col gap-3">
                 <button
-                    onClick={handleUpload}
+                    onClick={upload}
                     disabled={syncStatus.isSyncing}
                     className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-blue-700 transition-all disabled:opacity-50 shadow-lg shadow-blue-500/20"
                 >
@@ -263,7 +152,7 @@ const WebDAVSettings = () => {
                     上传本地数据至云端
                 </button>
                 <button
-                    onClick={handleDownload}
+                    onClick={download}
                     disabled={syncStatus.isSyncing}
                     className="w-full py-4 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-2xl font-bold flex items-center justify-center gap-3 hover:opacity-90 transition-all disabled:opacity-50 shadow-xl shadow-slate-900/20 dark:shadow-none"
                 >
@@ -279,43 +168,7 @@ const WebDAVSettings = () => {
         </div>
       </div>
 
-      <section className="bg-slate-950 rounded-2xl p-6 shadow-2xl border border-slate-800">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex gap-1">
-                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-            </div>
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                SYSTEM_SYNC_LOG
-            </h3>
-          </div>
-          <button 
-            onClick={handleClearLogs}
-            className="text-xs text-slate-500 hover:text-white transition-colors flex items-center gap-1"
-          >
-            <Trash2 className="w-3 h-3" />
-            CLEAR_CONSOLE
-          </button>
-        </div>
-        <div className="h-64 overflow-y-auto font-mono text-[11px] leading-relaxed scrollbar-thin scrollbar-thumb-slate-800">
-          {syncLogs.length === 0 ? (
-            <p className="text-slate-700 italic">等待系统就绪...</p>
-          ) : (
-            syncLogs.map((log, i) => (
-              <div key={i} className={`flex gap-3 py-0.5 border-b border-white/[0.03] ${
-                log.level === 'error' ? 'text-red-400' : 
-                log.level === 'warn' ? 'text-yellow-400' : 'text-emerald-500/80'
-              }`}>
-                <span className="text-slate-600 shrink-0">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-                <span className="shrink-0 font-bold">[{log.level?.toUpperCase() || 'INFO'}]</span>
-                <span className="break-all">{log.message}</span>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
+      <SyncLogger logs={syncLogs} onClear={clearLogs} />
     </div>
   );
 };
