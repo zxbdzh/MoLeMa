@@ -15,6 +15,7 @@ export class WebDAVService {
   private isSyncing = false;
   private syncLogs: SyncLog[] = [];
   private watcher: chokidar.FSWatcher | null = null;
+  private syncTimer: NodeJS.Timeout | null = null;
 
   setMainWindow(window: BrowserWindow | null) {
     this.mainWindow = window;
@@ -71,9 +72,7 @@ export class WebDAVService {
       syncEngine.setConfig(this.config);
       this.addLog('WebDAV 服务初始化完成');
       
-      if (this.config.syncMode === 'realtime') {
-        this.startRealtimeSync();
-      }
+      this.refreshSyncMode();
     }
   }
 
@@ -92,10 +91,40 @@ export class WebDAVService {
     syncEngine.setConfig(newConfig);
     this.addLog('WebDAV 配置已更新并保存');
     
-    this.stopRealtimeSync();
+    this.refreshSyncMode();
+  }
 
-    if (newConfig.syncMode === 'realtime') {
+  private refreshSyncMode() {
+    this.stopRealtimeSync();
+    this.stopScheduledSync();
+
+    if (!this.config || !this.config.serverUrl) return;
+
+    if (this.config.syncMode === 'realtime') {
       this.startRealtimeSync();
+    } else if (this.config.syncMode === 'scheduled') {
+      this.startScheduledSync();
+    }
+  }
+
+  startScheduledSync() {
+    this.stopScheduledSync();
+    if (!this.config || this.config.syncMode !== 'scheduled' || !this.config.serverUrl) return;
+
+    const intervalMs = (this.config.debounceTime || 5) * 60 * 1000;
+    this.addLog(`定时同步已启动，间隔: ${this.config.debounceTime} 分钟`);
+
+    this.syncTimer = setInterval(() => {
+        this.addLog('执行定时同步任务...');
+        this.syncAll();
+    }, intervalMs);
+  }
+
+  stopScheduledSync() {
+    if (this.syncTimer) {
+        clearInterval(this.syncTimer);
+        this.syncTimer = null;
+        this.addLog('定时同步已停止');
     }
   }
 

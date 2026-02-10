@@ -55,7 +55,7 @@ export interface WebDAVConfig {
   enableSyncConfig: boolean;
   enableSyncDatabase: boolean;
   enableSyncRecordings: boolean;
-  syncMode: 'manual' | 'realtime';
+  syncMode: 'manual' | 'realtime' | 'scheduled';
   debounceTime: number;
   lastSyncTime: number;
 }

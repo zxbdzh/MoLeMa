@@ -266,6 +266,7 @@ const WebDAVSettings = () => {
             <div className="space-y-3">
               {[
                 { id: 'manual', label: '手动同步', desc: '点击按钮时执行全量同步', icon: <Download className="w-4 h-4" /> },
+                { id: 'scheduled', label: '定时同步', desc: '按照设定间隔自动执行全量同步', icon: <Clock className="w-4 h-4" /> },
                 { id: 'realtime', label: '实时监控', desc: '检测本地文件变动即刻上传', icon: <Activity className="w-4 h-4" /> }
               ].map(mode => (
                 <button
@@ -280,13 +281,30 @@ const WebDAVSettings = () => {
                   <div className={`p-2 rounded-lg ${config.syncMode === mode.id ? 'bg-blue-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
                       {mode.icon}
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <div className="text-sm font-bold">{mode.label}</div>
                     <div className="text-xs text-slate-500">{mode.desc}</div>
                   </div>
                 </button>
               ))}
             </div>
+
+            {config.syncMode === 'scheduled' && (
+                <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">同步间隔 (分钟)</label>
+                    <div className="flex items-center gap-3">
+                        <input 
+                            type="number" 
+                            min="1" 
+                            max="1440"
+                            value={config.debounceTime}
+                            onChange={(e) => setConfig({ ...config, debounceTime: parseInt(e.target.value) || 5 })}
+                            className="w-24 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <span className="text-xs text-slate-400 font-medium">建议 5-30 分钟</span>
+                    </div>
+                </div>
+            )}
           </section>
 
           <section className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
