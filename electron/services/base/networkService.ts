@@ -1,17 +1,18 @@
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { getProxy } from '../../database';
+import https from 'https';
 
 /**
  * 统一网络服务，处理代理、请求头等
  */
 export const networkService = {
     /**
-     * 获取当前代理代理
+     * 获取当前代理配置
      */
     getProxyAgent(): HttpsProxyAgent<string> | undefined {
-        const proxyUrl = getProxy();
-        if (proxyUrl) {
-            return new HttpsProxyAgent(proxyUrl);
+        const proxy = getProxy();
+        if (proxy && proxy.enabled && proxy.url) {
+            return new HttpsProxyAgent(proxy.url);
         }
         return undefined;
     },
@@ -28,16 +29,43 @@ export const networkService = {
     },
 
     /**
-     * 带代理支持的 Fetch
+     * 带代理支持的 Fetch 模拟 (使用 https.request)
      */
-    async proxyFetch(url: string, options: any = {}): Promise<Response> {
+    async proxyFetch(url: string, options: any = {}): Promise<{ ok: boolean, status: number, text: () => Promise<string> }> {
         const agent = this.getProxyAgent();
         const headers = { ...this.getStandardHeaders(), ...options.headers };
-        
-        return fetch(url, {
-            ...options,
-            headers,
-            agent: agent // Node-fetch 支持 agent，原生 fetch 在较新版本 Node 中可能需要额外处理
+        const timeout = options.timeout || 10000;
+
+        return new Promise((resolve, reject) => {
+            try {
+                const reqOptions = {
+                    method: options.method || 'GET',
+                    headers,
+                    agent,
+                    timeout
+                };
+
+                const req = https.request(url, reqOptions, (res) => {
+                    let data = '';
+                    res.on('data', (chunk) => data += chunk);
+                    res.on('end', () => {
+                        resolve({
+                            ok: res.statusCode ? res.statusCode >= 200 && res.statusCode < 300 : false,
+                            status: res.statusCode || 0,
+                            text: async () => data
+                        });
+                    });
+                });
+
+                req.on('error', reject);
+                req.on('timeout', () => {
+                    req.destroy();
+                    reject(new Error('Request timeout'));
+                });
+                req.end();
+            } catch (e) {
+                reject(e);
+            }
         });
     }
 };

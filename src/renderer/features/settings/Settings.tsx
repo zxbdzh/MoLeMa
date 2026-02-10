@@ -98,9 +98,9 @@ export default function Settings() {
 
         // 获取代理设置状态
         window.electronAPI?.proxy?.get().then((result) => {
-            if (result?.success && result.config) {
-                setProxyUrl(result.config.url || '');
-                setProxyEnabled(result.config.enabled);
+            if (result?.success && result.proxy) {
+                setProxyUrl(result.proxy.url || '');
+                setProxyEnabled(result.proxy.enabled);
             }
         });
 
@@ -270,11 +270,20 @@ export default function Settings() {
     const handleSaveProxy = async () => {
         try {
             const url = proxyEnabled ? proxyUrl : null
-            await window.electronAPI?.proxy?.set?.(url)
-            setSaved(true)
-            setTimeout(() => setSaved(false), 2000)
+            const result = await window.electronAPI?.proxy?.set?.(url)
+            if (result?.success) {
+                // 重新从数据库读取以验证保存成功
+                const getResult = await window.electronAPI?.proxy?.get()
+                if (getResult?.success && getResult.proxy) {
+                    setProxyUrl(getResult.proxy.url || '');
+                    setProxyEnabled(getResult.proxy.enabled);
+                }
+                setSaved(true)
+                setTimeout(() => setSaved(false), 2000)
+            }
         } catch (error) {
             console.error('保存代理设置失败:', error)
+            alert('保存代理设置失败，请查看控制台日志')
         }
     }
 

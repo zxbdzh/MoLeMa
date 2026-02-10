@@ -722,20 +722,19 @@ export function migrateDatabaseToNewPath(newDbPath: string): {
 }
 
 /**
- * 获取代理配置
+ * 获取完整的代理配置
  */
-export function getProxy(): string | null {
+export function getProxy(): { enabled: boolean; url: string } {
   const db = getDatabase();
   const result = db.prepare('SELECT value FROM settings WHERE key = ?').get('proxy') as { value: string } | undefined;
   if (result) {
     try {
-      const config = JSON.parse(result.value);
-      return config.enabled ? config.url : null;
+      return JSON.parse(result.value);
     } catch {
-      return null;
+      return { enabled: false, url: '' };
     }
   }
-  return null;
+  return { enabled: false, url: '' };
 }
 
 /**

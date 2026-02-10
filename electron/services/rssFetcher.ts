@@ -28,8 +28,9 @@ export async function fetchRSSFeed(sourceId: number): Promise<FetchResult> {
       customFields: {
         item: ['media:thumbnail', 'media:content']
       },
-      // rss-parser 支持通过 headers.agent 传递代理
-      headers: { agent } as any
+      requestOptions: {
+        agent
+      }
     });
 
     let itemCount = 0;
@@ -69,7 +70,9 @@ export async function testRSSFeed(url: string): Promise<{ success: boolean; erro
     const agent = networkService.getProxyAgent();
     const feed = await parser.parseURL(url, {
       timeout: 10000,
-      headers: { agent } as any
+      requestOptions: {
+        agent
+      }
     });
 
     return {

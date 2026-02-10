@@ -17,6 +17,13 @@ export function registerSystemHandlers() {
         }
     });
 
+    // 兼容旧版前缀
+    ipcMain.handle("autoUpdate:getEnabled", async () => ({ success: true, enabled: getAutoUpdateEnabled() }));
+    ipcMain.handle("autoUpdate:setEnabled", async (_event, enabled) => {
+        setAutoUpdateEnabled(enabled);
+        return { success: true };
+    });
+
     // 开机自启
     ipcMain.handle("autoLaunch:getEnabled", async () => ({ 
         success: true, 
