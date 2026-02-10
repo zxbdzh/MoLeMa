@@ -8,6 +8,11 @@ import { registerWebDAVHandlers } from "../ipc/webdav";
 import { registerSystemHandlers } from "../ipc/system";
 import { registerNewsHandlers } from "../ipc/news";
 import { registerBrowserViewHandlers } from "../ipc/browserView";
+import { registerWindowHandlers } from "../ipc/window";
+import { registerConfigHandlers } from "../ipc/config";
+import { registerStatsHandlers } from "../ipc/stats";
+import { registerShellHandlers } from "../ipc/shell";
+import { registerShortcutHandlers } from "../ipc/shortcuts";
 import { webdavService } from "../services/webdav/service";
 
 /**
@@ -24,9 +29,16 @@ export function registerIPCHandlers() {
     registerWebPagesHandlers();
     registerRecordingsHandlers();
     registerWebDAVHandlers();
-    registerSystemHandlers();
     registerNewsHandlers();
     registerBrowserViewHandlers();
+    
+    // 新拆分的模块
+    registerWindowHandlers();
+    registerConfigHandlers();
+    registerStatsHandlers();
+    registerShellHandlers();
+    registerShortcutHandlers();
+    registerSystemHandlers();
 
     console.log("IPC handlers registered");
 }
