@@ -11,11 +11,10 @@ const store = new Store({ name: "moyu-data" });
 
 export class WebDAVService {
   private mainWindow: BrowserWindow | null = null;
-  private config: WebDAVConfig | null = null;
+  public config: WebDAVConfig | null = null;
   private isSyncing = false;
   private syncLogs: SyncLog[] = [];
   private watcher: chokidar.FSWatcher | null = null;
-  private syncTimer: NodeJS.Timeout | null = null;
 
   setMainWindow(window: BrowserWindow | null) {
     this.mainWindow = window;
@@ -33,13 +32,15 @@ export class WebDAVService {
     console.log(`[WebDAV] ${level.toUpperCase()}: ${message}`);
     
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('webdav:log-update', log);
+      // 保持与旧 API 兼容的同时发送新格式
+      this.mainWindow.webContents.send('webdav:logUpdate', this.syncLogs);
+      this.mainWindow.webContents.send('webdav:newLog', log);
     }
   }
 
   private updateStatus(status: Partial<SyncStatus>) {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('webdav:status-update', status);
+      this.mainWindow.webContents.send('webdav:statusChange', status);
     }
   }
 
@@ -49,12 +50,10 @@ export class WebDAVService {
       this.config = savedConfig;
       webdavClient.initialize(this.config);
       syncEngine.setConfig(this.config);
-      this.addLog('WebDAV Service initialized with saved config');
+      this.addLog('WebDAV 服务初始化完成');
       
       if (this.config.syncMode === 'realtime') {
         this.startRealtimeSync();
-      } else if (this.config.syncMode === 'scheduled' && this.config.enableScheduledSync) {
-        this.startScheduledSync();
       }
     }
   }
@@ -64,23 +63,24 @@ export class WebDAVService {
     store.set('webdav.config', newConfig);
     webdavClient.initialize(newConfig);
     syncEngine.setConfig(newConfig);
-    this.addLog('WebDAV Config updated');
+    this.addLog('WebDAV 配置已更新并保存');
     
-    this.stopScheduledSync();
     this.stopRealtimeSync();
 
     if (newConfig.syncMode === 'realtime') {
       this.startRealtimeSync();
-    } else if (newConfig.syncMode === 'scheduled' && newConfig.enableScheduledSync) {
-      this.startScheduledSync();
     }
   }
 
   async syncAll() {
-    if (this.isSyncing || !this.config) return;
+    if (this.isSyncing || !this.config) {
+        if (this.isSyncing) this.addLog('已有同步任务在进行中，请稍候', 'warn');
+        return;
+    }
+    
     this.isSyncing = true;
     this.updateStatus({ isSyncing: true });
-    this.addLog('Starting full sync...');
+    this.addLog('开始全量同步...');
 
     try {
       const userDataPath = app.getPath('userData');
@@ -88,23 +88,24 @@ export class WebDAVService {
 
       // 1. Config and Database
       if (this.config.enableSyncConfig) {
+        this.addLog('正在同步配置文件...');
         await syncEngine.syncFile(join(userDataPath, 'moyu-data.json'), this.config.remoteConfigPath + 'moyu-data.json');
       }
       if (this.config.enableSyncDatabase) {
+        this.addLog('正在同步数据库...');
         await syncEngine.syncFile(join(userDataPath, 'moyu.db'), this.config.remoteConfigPath + 'moyu.db');
       }
 
       // 2. Recordings
       if (this.config.enableSyncRecordings && existsSync(recordingsPath)) {
+        this.addLog('正在同步录音文件...');
         const audioExtensions = ['.wav', '.mp3', '.m4a', '.webm', '.ogg'];
         const localFiles = readdirSync(recordingsPath).filter(f => audioExtensions.some(ext => f.toLowerCase().endsWith(ext)));
         
-        // Simple bidirectional sync for recordings
         for (const file of localFiles) {
           await syncEngine.syncFile(join(recordingsPath, file), this.config.remoteRecordingPath + file);
         }
         
-        // Also check remote for files not in local
         const remoteFiles = await syncEngine.getRemoteFiles();
         for (const remote of remoteFiles) {
           if (remote.type === 'recording' && !localFiles.includes(remote.name)) {
@@ -115,35 +116,13 @@ export class WebDAVService {
 
       this.config.lastSyncTime = Date.now();
       store.set('webdav.config', this.config);
+      this.addLog('全量同步成功完成');
       this.updateStatus({ isSyncing: false, lastSyncTime: this.config.lastSyncTime });
-      this.addLog('Full sync completed successfully');
     } catch (error) {
-      this.addLog(`Sync failed: ${error}`, 'error');
+      this.addLog(`同步失败: ${error}`, 'error');
       this.updateStatus({ isSyncing: false });
     } finally {
       this.isSyncing = false;
-    }
-  }
-
-  startScheduledSync() {
-    this.stopScheduledSync();
-    if (!this.config || !this.config.enableScheduledSync) return;
-
-    const interval = (this.config.scheduledSyncInterval || 30) * 60 * 1000;
-    this.addLog(`Starting scheduled sync every ${this.config.scheduledSyncInterval} minutes`);
-    
-    this.syncTimer = setInterval(() => {
-      this.syncAll();
-    }, interval);
-
-    this.updateStatus({ nextSyncTime: Date.now() + interval });
-  }
-
-  stopScheduledSync() {
-    if (this.syncTimer) {
-      clearInterval(this.syncTimer);
-      this.syncTimer = null;
-      this.addLog('Scheduled sync stopped');
     }
   }
 
@@ -159,6 +138,8 @@ export class WebDAVService {
     if (this.config.enableSyncDatabase) watchPaths.push(join(userDataPath, 'moyu.db'));
     if (this.config.enableSyncRecordings && existsSync(recordingsPath)) watchPaths.push(recordingsPath);
 
+    if (watchPaths.length === 0) return;
+
     this.watcher = chokidar.watch(watchPaths, {
       ignoreInitial: true,
       persistent: true,
@@ -166,15 +147,15 @@ export class WebDAVService {
     });
 
     this.watcher.on('change', (path) => {
-      this.addLog(`File changed: ${basename(path)}, triggering upload...`);
+      this.addLog(`检测到本地文件变动: ${basename(path)}，准备上传...`);
       this.handleFileChange(path);
     });
 
-    this.addLog('Realtime sync started (watching for local changes)');
+    this.addLog('实时监控已启动');
   }
 
   private async handleFileChange(path: string) {
-    if (!this.config) return;
+    if (!this.config || this.isSyncing) return;
     const fileName = basename(path);
     let remotePath = '';
 
@@ -184,15 +165,25 @@ export class WebDAVService {
       remotePath = this.config.remoteRecordingPath + fileName;
     }
 
-    await syncEngine.upload(path, remotePath);
+    const result = await syncEngine.upload(path, remotePath);
+    if (result) {
+        this.addLog(`变动文件上传成功: ${fileName}`);
+        this.config.lastSyncTime = Date.now();
+        store.set('webdav.config', this.config);
+        this.updateStatus({ lastSyncTime: this.config.lastSyncTime });
+    }
   }
 
   stopRealtimeSync() {
     if (this.watcher) {
       this.watcher.close();
       this.watcher = null;
-      this.addLog('Realtime sync stopped');
+      this.addLog('实时监控已停止');
     }
+  }
+
+  getLogs() {
+      return this.syncLogs;
   }
 }
 

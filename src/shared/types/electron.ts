@@ -55,13 +55,9 @@ export interface WebDAVConfig {
   enableSyncConfig: boolean;
   enableSyncDatabase: boolean;
   enableSyncRecordings: boolean;
-  syncMode: 'manual' | 'scheduled' | 'realtime';
-  enableScheduledSync: boolean;
-  scheduledSyncInterval: number;
-  scheduledSyncType: 'all' | 'config' | 'database' | 'recordings';
+  syncMode: 'manual' | 'realtime';
   debounceTime: number;
   lastSyncTime: number;
-  nextSyncTime: number;
 }
 
 export interface ElectronAPI {

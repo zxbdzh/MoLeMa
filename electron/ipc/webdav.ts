@@ -7,7 +7,7 @@ import { WebDAVConfig } from '@shared/types/electron';
 export function registerWebDAVHandlers() {
     ipcMain.handle("webdav:getConfig", async () => {
         try {
-            const config = (webdavService as any).config;
+            const config = webdavService.config;
             return { success: true, config };
         } catch (error) {
             console.error("Failed to get WebDAV config:", error);
@@ -55,29 +55,17 @@ export function registerWebDAVHandlers() {
         }
     });
 
-    ipcMain.handle("webdav:startScheduledSync", async () => {
+    ipcMain.handle("webdav:getSyncLogs", async () => {
         try {
-            webdavService.startScheduledSync();
-            return { success: true };
+            const logs = webdavService.getLogs();
+            return { success: true, logs };
         } catch (error) {
-            console.error("Failed to start scheduled sync:", error);
-            return { success: false, error: "Failed to start" };
+            return { success: false, error: "Failed to get logs" };
         }
     });
 
-    ipcMain.handle("webdav:stopScheduledSync", async () => {
+    ipcMain.handle("webdav:downloadAll", async (_event, _options: any) => {
         try {
-            webdavService.stopScheduledSync();
-            return { success: true };
-        } catch (error) {
-            console.error("Failed to stop scheduled sync:", error);
-            return { success: false, error: "Failed to stop" };
-        }
-    });
-
-    ipcMain.handle("webdav:downloadAll", async (_event, options: any) => {
-        try {
-            // Simplified for now: just trigger a sync which handles both directions
             await webdavService.syncAll();
             return { success: true };
         } catch (error) {
