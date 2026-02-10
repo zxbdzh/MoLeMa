@@ -21,6 +21,7 @@ import {registerGlobalShortcuts, unregisterAllShortcuts} from "./modules/shortcu
 import {createTray} from "./modules/trayManager";
 import {checkForUpdates, getAutoUpdateEnabled, setupAutoUpdater} from "./modules/autoUpdater";
 import {registerIPCHandlers} from "./modules/ipcHandlers";
+import {webdavService} from "./services/webdav/service";
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json');
@@ -114,18 +115,9 @@ app.whenReady().then(async () => {
     registerIPCHandlers();
     startNewSession();
 
-    // 启动 WebDAV 定时上传
-    try {
-        const store = new Store({ name: "moyu-data" });
-        const webdavConfig = store.get("webdav.config") as WebDAVConfig | null;
-        if (webdavConfig?.syncMode === 'scheduled') {
-            console.log('[WebDAV] 应用启动，启动定时上传');
-            const scheduledSyncService = (await import('./services/scheduledSyncService')).default;
-            scheduledSyncService.startScheduledSync(webdavConfig);
-        }
-    } catch (error) {
-        console.error('[WebDAV] 启动定时上传失败:', error);
-    }
+    // 初始化 WebDAV 服务
+    webdavService.setMainWindow(getMainWindow());
+    webdavService.initialize();
 
     // 设置自动更新
     setupAutoUpdater();

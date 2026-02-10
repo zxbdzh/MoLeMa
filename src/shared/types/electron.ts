@@ -29,6 +29,23 @@ export interface DownloadOptions {
   rename: string[];
 }
 
+export interface SyncLog {
+  timestamp: number;
+  level: 'info' | 'warn' | 'error' | 'debug';
+  message: string;
+}
+
+export interface SyncStatus {
+  isSyncing: boolean;
+  lastSyncTime: number;
+  nextSyncTime?: number;
+  progress?: {
+    total: number;
+    current: number;
+    fileName: string;
+  };
+}
+
 export interface WebDAVConfig {
   serverUrl: string;
   username: string;
@@ -38,7 +55,7 @@ export interface WebDAVConfig {
   enableSyncConfig: boolean;
   enableSyncDatabase: boolean;
   enableSyncRecordings: boolean;
-  syncMode: 'manual' | 'scheduled';
+  syncMode: 'manual' | 'scheduled' | 'realtime';
   enableScheduledSync: boolean;
   scheduledSyncInterval: number;
   scheduledSyncType: 'all' | 'config' | 'database' | 'recordings';
