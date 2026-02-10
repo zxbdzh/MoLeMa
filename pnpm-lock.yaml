@@ -92,6 +92,9 @@ importers:
       gsap:
         specifier: ^3.14.2
         version: 3.14.2
+      http-proxy-agent:
+        specifier: ^7.0.2
+        version: 7.0.2
       https-proxy-agent:
         specifier: ^7.0.6
         version: 7.0.6

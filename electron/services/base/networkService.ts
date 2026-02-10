@@ -1,6 +1,9 @@
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import { HttpProxyAgent } from 'http-proxy-agent';
 import { getProxy } from '../../database';
 import https from 'https';
+import http from 'http';
+import { URL } from 'url';
 
 /**
  * 统一网络服务，处理代理、请求头等
@@ -8,11 +11,17 @@ import https from 'https';
 export const networkService = {
     /**
      * 获取当前代理配置
+     * @param protocol 目标协议 'http:' | 'https:'
      */
-    getProxyAgent(): HttpsProxyAgent<string> | undefined {
+    getProxyAgent(protocol: string): HttpsProxyAgent<string> | HttpProxyAgent<string> | undefined {
         const proxy = getProxy();
         if (proxy && proxy.enabled && proxy.url) {
-            return new HttpsProxyAgent(proxy.url);
+            // 根据协议选择不同的 Agent
+            if (protocol === 'https:') {
+                return new HttpsProxyAgent(proxy.url);
+            } else {
+                return new HttpProxyAgent(proxy.url);
+            }
         }
         return undefined;
     },
@@ -29,12 +38,24 @@ export const networkService = {
     },
 
     /**
-     * 带代理支持的 Fetch 模拟 (使用 https.request)
+     * 带代理支持的 Fetch 模拟 (自动选择 http 或 https 模块)
      */
-    async proxyFetch(url: string, options: any = {}): Promise<{ ok: boolean, status: number, text: () => Promise<string> }> {
-        const agent = this.getProxyAgent();
+    async proxyFetch(urlStr: string, options: any = {}): Promise<{ ok: boolean, status: number, text: () => Promise<string> }> {
+        // 解析 URL 获取协议
+        let urlObj: URL;
+        try {
+            urlObj = new URL(urlStr);
+        } catch (e) {
+            return Promise.reject(new Error(`Invalid URL: ${urlStr}`));
+        }
+
+        const protocol = urlObj.protocol; // 'http:' or 'https:'
+        const agent = this.getProxyAgent(protocol);
         const headers = { ...this.getStandardHeaders(), ...options.headers };
         const timeout = options.timeout || 10000;
+
+        // 根据协议选择请求模块
+        const requestModule = protocol === 'https:' ? https : http;
 
         return new Promise((resolve, reject) => {
             try {
@@ -45,7 +66,7 @@ export const networkService = {
                     timeout
                 };
 
-                const req = https.request(url, reqOptions, (res) => {
+                const req = requestModule.request(urlStr, reqOptions, (res) => {
                     let data = '';
                     res.on('data', (chunk) => data += chunk);
                     res.on('end', () => {
