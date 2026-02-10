@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Server, Lock, User, Check, X, RefreshCw, FileText, Database, Music, Clock, Save, Download, Activity, CloudUpload, CloudDownload, Trash2 } from 'lucide-react';
+import { Server, Lock, User, Check, X, RefreshCw, FileText, Database, Music, Save, CloudUpload, CloudDownload, Trash2 } from 'lucide-react';
 import { WebDAVConfig, SyncLog, SyncStatus } from '@shared/types/electron';
 
 const WebDAVSettings = () => {
@@ -12,8 +12,6 @@ const WebDAVSettings = () => {
     enableSyncConfig: true,
     enableSyncDatabase: true,
     enableSyncRecordings: true,
-    syncMode: 'manual',
-    debounceTime: 5,
     lastSyncTime: 0,
   });
 
@@ -35,7 +33,6 @@ const WebDAVSettings = () => {
 
   useEffect(() => {
     loadConfig();
-    loadHistoryLogs();
 
     const unsubscribeStatus = window.electronAPI?.webdav?.onStatusChange?.((status: Partial<SyncStatus>) => {
       setSyncStatus(prev => ({ ...prev, ...status }));
@@ -44,12 +41,8 @@ const WebDAVSettings = () => {
       }
     });
 
-    const unsubscribeNewLog = (window.electronAPI as any).webdav?.onLogUpdate?.((log: any) => {
-        if (Array.isArray(log)) {
-            setSyncLogs([...log].reverse());
-        } else {
-            setSyncLogs(prev => [log, ...prev].slice(0, 100));
-        }
+    const unsubscribeNewLog = (window.electronAPI as any).webdav?.onLogUpdate?.((logs: any) => {
+        setSyncLogs([...logs].reverse());
     });
 
     return () => {
@@ -68,17 +61,6 @@ const WebDAVSettings = () => {
     } catch (error) {
       console.error('Failed to load WebDAV config:', error);
     }
-  };
-
-  const loadHistoryLogs = async () => {
-      try {
-          const result = await (window.electronAPI as any).webdav?.getSyncLogs?.();
-          if (result?.success && result.logs) {
-              setSyncLogs([...result.logs].reverse());
-          }
-      } catch (error) {
-          console.error('Failed to load logs:', error);
-      }
   };
 
   const handleSaveConfig = async (silent = false) => {
@@ -120,21 +102,21 @@ const WebDAVSettings = () => {
     }
   };
 
-  const handleSyncAll = async () => {
+  const handleUpload = async () => {
     if (syncStatus.isSyncing) return;
     try {
-      await window.electronAPI?.webdav?.syncAll?.();
+      await window.electronAPI?.webdav?.upload?.();
     } catch (error) {
-      console.error('Sync failed:', error);
+      console.error('Upload failed:', error);
     }
   };
 
-  const handleForceSync = async (direction: 'upload' | 'download') => {
+  const handleDownload = async () => {
     if (syncStatus.isSyncing) return;
     try {
-      await window.electronAPI?.webdav?.forceSync?.(direction);
+      await window.electronAPI?.webdav?.download?.();
     } catch (error) {
-      console.error('Force sync failed:', error);
+      console.error('Download failed:', error);
     }
   };
 
@@ -158,7 +140,7 @@ const WebDAVSettings = () => {
         <h2 className="text-3xl font-bold font-heading mb-2 dark:text-white text-slate-900">
           WebDAV 同步
         </h2>
-        <p className="text-slate-500 dark:text-slate-400">稳定、实时、跨设备的数据同步方案</p>
+        <p className="text-slate-500 dark:text-slate-400">简单可靠的手动同步方案，确保数据一致性</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -208,18 +190,18 @@ const WebDAVSettings = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 transition-colors"
                     >
-                      {showPassword ? <X className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                      {showPassword ? <X className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-8">
                 <button
                 onClick={handleTestAndSave}
                 disabled={uiStatus.status === 'connecting' || syncStatus.isSyncing}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50"
                 >
                 {uiStatus.status === 'connecting' ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                 测试连接并保存配置
@@ -262,52 +244,6 @@ const WebDAVSettings = () => {
 
         <div className="space-y-6">
           <section className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-            <h3 className="text-lg font-bold mb-4 dark:text-white text-slate-900">运行模式</h3>
-            <div className="space-y-3">
-              {[
-                { id: 'manual', label: '手动同步', desc: '点击按钮时执行全量同步', icon: <Download className="w-4 h-4" /> },
-                { id: 'scheduled', label: '定时同步', desc: '按照设定间隔自动执行全量同步', icon: <Clock className="w-4 h-4" /> },
-                { id: 'realtime', label: '实时监控', desc: '检测本地文件变动即刻上传', icon: <Activity className="w-4 h-4" /> }
-              ].map(mode => (
-                <button
-                  key={mode.id}
-                  onClick={() => setConfig({ ...config, syncMode: mode.id as any })}
-                  className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
-                    config.syncMode === mode.id 
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                      : 'border-slate-100 dark:border-slate-700 hover:border-slate-200'
-                  }`}
-                >
-                  <div className={`p-2 rounded-lg ${config.syncMode === mode.id ? 'bg-blue-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
-                      {mode.icon}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-bold">{mode.label}</div>
-                    <div className="text-xs text-slate-500">{mode.desc}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {config.syncMode === 'scheduled' && (
-                <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">同步间隔 (分钟)</label>
-                    <div className="flex items-center gap-3">
-                        <input 
-                            type="number" 
-                            min="1" 
-                            max="1440"
-                            value={config.debounceTime}
-                            onChange={(e) => setConfig({ ...config, debounceTime: parseInt(e.target.value) || 5 })}
-                            className="w-24 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <span className="text-xs text-slate-400 font-medium">建议 5-30 分钟</span>
-                    </div>
-                </div>
-            )}
-          </section>
-
-          <section className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
             <h3 className="text-lg font-bold mb-4 dark:text-white text-slate-900">同步控制台</h3>
             <div className="space-y-4">
               <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700">
@@ -317,33 +253,27 @@ const WebDAVSettings = () => {
                 </div>
               </div>
               
-              <button
-                onClick={handleSyncAll}
-                disabled={syncStatus.isSyncing}
-                className="w-full py-4 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-2xl font-bold flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 shadow-xl shadow-slate-900/20 dark:shadow-none"
-              >
-                {syncStatus.isSyncing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                {syncStatus.isSyncing ? '正在同步数据...' : '立即执行全量同步'}
-              </button>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-3">
                 <button
-                    onClick={() => handleForceSync('upload')}
+                    onClick={handleUpload}
                     disabled={syncStatus.isSyncing}
-                    className="py-3 bg-amber-600/10 hover:bg-amber-600/20 text-amber-600 dark:text-amber-500 border border-amber-600/20 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-blue-700 transition-all disabled:opacity-50 shadow-lg shadow-blue-500/20"
                 >
-                    <CloudUpload className="w-4 h-4" />
-                    覆盖远程
+                    {syncStatus.isSyncing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <CloudUpload className="w-5 h-5" />}
+                    上传本地数据至云端
                 </button>
                 <button
-                    onClick={() => handleForceSync('download')}
+                    onClick={handleDownload}
                     disabled={syncStatus.isSyncing}
-                    className="py-3 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-600/20 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                    className="w-full py-4 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-2xl font-bold flex items-center justify-center gap-3 hover:opacity-90 transition-all disabled:opacity-50 shadow-xl shadow-slate-900/20 dark:shadow-none"
                 >
-                    <CloudDownload className="w-4 h-4" />
-                    覆盖本地
+                    {syncStatus.isSyncing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <CloudDownload className="w-5 h-5" />}
+                    从云端下载数据覆盖本地
                 </button>
               </div>
+              <p className="text-[10px] text-slate-400 text-center px-2">
+                提示：上传将清空云端对应目录后重新写入，下载将直接覆盖本地文件。
+              </p>
             </div>
           </section>
         </div>

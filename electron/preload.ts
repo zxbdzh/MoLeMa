@@ -332,16 +332,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     getConfig: () => ipcRenderer.invoke("webdav:getConfig"),
     setConfig: (config: any) => ipcRenderer.invoke("webdav:setConfig", config),
     testConnection: () => ipcRenderer.invoke("webdav:testConnection"),
-    syncAll: () => ipcRenderer.invoke("webdav:syncAll"),
+    upload: () => ipcRenderer.invoke("webdav:upload"),
+    download: () => ipcRenderer.invoke("webdav:download"),
     getSyncLogs: () => ipcRenderer.invoke("webdav:getSyncLogs"),
     clearLogs: () => ipcRenderer.invoke("webdav:clearLogs"),
-    forceSync: (direction: 'upload' | 'download') => ipcRenderer.invoke("webdav:forceSync", direction),
-    isWatching: () => ipcRenderer.invoke("webdav:isWatching"),
-    startScheduledSync: () => ipcRenderer.invoke("webdav:startScheduledSync"),
-    stopScheduledSync: () => ipcRenderer.invoke("webdav:stopScheduledSync"),
-    listRemoteFiles: () => ipcRenderer.invoke("webdav:listRemoteFiles"),
-    checkConflicts: () => ipcRenderer.invoke("webdav:checkConflicts"),
-    downloadAll: (options: any) => ipcRenderer.invoke("webdav:downloadAll", options),
     onLogUpdate: (callback: (logs: string[]) => void) => {
       const listener = (_event: any, logs: string[]) => callback(logs);
       ipcRenderer.on("webdav:logUpdate", listener);
@@ -351,16 +345,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
       const listener = (_event: any, status: any) => callback(status);
       ipcRenderer.on("webdav:statusChange", listener);
       return () => ipcRenderer.removeListener("webdav:statusChange", listener);
-    },
-    onWatchingStatusChange: (callback: (status: { isWatching: boolean; message: string }) => void) => {
-      const listener = (_event: any, status: any) => callback(status);
-      ipcRenderer.on("webdav:watchingStatusChanged", listener);
-      return () => ipcRenderer.removeListener("webdav:watchingStatusChanged", listener);
-    },
-    onScheduledSyncStatusChange: (callback: (status: { isRunning: boolean; nextSyncTime?: number; error?: string }) => void) => {
-      const listener = (_event: any, status: any) => callback(status);
-      ipcRenderer.on("webdav:scheduledSyncStatusChanged", listener);
-      return () => ipcRenderer.removeListener("webdav:scheduledSyncStatusChanged", listener);
     },
   },
 });

@@ -1,7 +1,6 @@
 import { ipcMain } from 'electron';
 import { webdavClient } from '../services/webdav/client';
 import { webdavService } from '../services/webdav/service';
-import { syncEngine } from '../services/webdav/syncEngine';
 import { WebDAVConfig } from '@shared/types/electron';
 
 export function registerWebDAVHandlers() {
@@ -35,23 +34,23 @@ export function registerWebDAVHandlers() {
         }
     });
 
-    ipcMain.handle("webdav:syncAll", async () => {
+    ipcMain.handle("webdav:upload", async () => {
         try {
-            await webdavService.syncAll();
+            await webdavService.uploadAll();
             return { success: true };
         } catch (error) {
-            console.error("Failed to sync:", error);
-            return { success: false, error: "Failed to sync" };
+            console.error("Upload failed:", error);
+            return { success: false, error: "Upload failed" };
         }
     });
 
-    ipcMain.handle("webdav:listRemoteFiles", async () => {
+    ipcMain.handle("webdav:download", async () => {
         try {
-            const files = await syncEngine.getRemoteFiles();
-            return { success: true, files };
+            await webdavService.downloadAll();
+            return { success: true };
         } catch (error) {
-            console.error("Failed to list remote files:", error);
-            return { success: false, error: "Failed to list remote files" };
+            console.error("Download failed:", error);
+            return { success: false, error: "Download failed" };
         }
     });
 
@@ -70,25 +69,6 @@ export function registerWebDAVHandlers() {
             return { success: true };
         } catch (error) {
             return { success: false, error: "Failed to clear logs" };
-        }
-    });
-
-    ipcMain.handle("webdav:forceSync", async (_event, direction: 'upload' | 'download') => {
-        try {
-            await webdavService.forceSync(direction);
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: "Failed to force sync" };
-        }
-    });
-
-    ipcMain.handle("webdav:downloadAll", async (_event, _options: any) => {
-        try {
-            await webdavService.syncAll();
-            return { success: true };
-        } catch (error) {
-            console.error("Failed to download:", error);
-            return { success: false, error: "Failed to download" };
         }
     });
 }
